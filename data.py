@@ -241,177 +241,29 @@ class DataScheduler(Iterator):
                 accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i,
                                                         eval_data_loader,
                                                         self.config['batch_size'])
-                print("task ", i, "y acc", round(accuracy_y, 3), "d acc", round(accuracy_d, 3))
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             i += len(self.schedule['train']) if self.schedule['test']['include-training-task'] else 0
             eval_data_loader = self.get_dataloader(stage['subsets'])
             accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
                                                     self.config['batch_size'])
-            print("task ", i, "y acc", round(accuracy_y, 3), "d acc", round(accuracy_d, 3))
-
-
-class BaseDataset(Dataset, ABC):
-    name = 'base'
-
-    def __init__(self, config, train=True):
-        self.config = config
-        self.subsets = {}
-        self.train = train
-
-    def eval(self, model, writer: SummaryWriter, step, eval_title,
-             task_index=None):
-        if self.config['eval_d']:
-            self._eval_discriminative_model(model, writer, step, eval_title)
-        if self.config['eval_g']:
-            self._eval_generative_model(model, writer, step, eval_title)
-        if 'eval_t' in self.config and self.config['eval_t']:
-            self._eval_hard_assign(
-                model, writer, step, eval_title,
-                task_index=task_index
-            )
-
-    def collate_fn(self, batch):
-        return default_collate(batch)
-
-
-class CustomSubset(Subset):
-    def __init__(self, dataset, indices, transform):
-        super().__init__(dataset, indices)
-        self.transform = transform
-
-    def __getitem__(self, idx):
-        return self.transform(self.dataset[self.indices[idx]])
 
 
 # ================
 # Generic Datasets
 # ================
 
-class ClassificationDataset(BaseDataset, ABC):
+class ClassificationDataset(Dataset, ABC):
     num_classes = NotImplemented
     targets = NotImplemented
 
     def __init__(self, config, train=True):
-        super().__init__(config, train)
+        self.config = config
+        self.subsets = {}
+        self.train = train
 
-    def _eval_hard_assign(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_title, task_index=None,
-    ):
-        tasks = [
-            tuple([c for _, c in t['subsets']])
-            for t in self.config['data_schedule']
-        ]
-        if task_index is not None:
-            tasks = [tasks[task_index]]
-        k = 5
-
-        # Overall counts
-        total_overall = 0.
-        correct_1_overall = 0.
-        correct_k_overall = 0.
-        correct_expert_overall = 0.
-        correct_assign_overall = 0.
-
-        # Loop over each task
-        for task_index, task_subsets in enumerate(tasks, task_index or 0):
-            # Task-wise counts
-            total = 0.
-            correct_1 = 0.
-            correct_k = 0.
-            correct_expert = 0.
-            correct_assign = 0.
-
-            # Loop over each subset
-            for subset in task_subsets:
-                data = DataLoader(
-                    self.subsets[subset],
-                    batch_size=self.config['eval_batch_size'],
-                    num_workers=self.config['eval_num_workers'],
-                    collate_fn=self.collate_fn,
-                )
-                for x, y in iter(data):
-                    with torch.no_grad():
-                        logits, assignments = model(
-                            x, return_assignments=True)
-                    total += x.size(0)
-                    correct_assign += (assignments == task_index).float().sum()
-                    if not self.config['disable_d']:
-                        # NDPM accuracy
-                        _, pred_topk = logits.topk(k, dim=1)
-                        correct_topk = (
-                                pred_topk.cpu()
-                                == y.unsqueeze(1).expand_as(pred_topk)
-                        ).float()
-                        correct_1 += correct_topk[:, :1].view(-1).sum()
-                        correct_k += correct_topk[:, :k].view(-1).sum()
-
-                        # Hard-assigned expert accuracy
-                        num_experts = len(model.ndpm.experts) - 1
-                        if num_experts > task_index:
-                            expert = model.ndpm.experts[task_index + 1]
-                            with torch.no_grad():
-                                logits = expert(x)
-                            correct = (y == logits.argmax(dim=1).cpu()).float()
-                            correct_expert += correct.sum()
-
-            # Add to overall counts
-            total_overall += total
-            correct_1_overall += correct_1
-            correct_k_overall += correct_k
-            correct_expert_overall += correct_expert
-            correct_assign_overall += correct_assign
-
-            # Task-wise accuracies
-            accuracy_1 = correct_1 / total
-            accuracy_k = correct_k / total
-            accuracy_expert = correct_expert / total
-            accuracy_assign = correct_assign / total
-
-            # Summarize task-wise accuracies
-            writer.add_scalar(
-                'accuracy_1/%s/%s/%s' % (eval_title, self.name, task_index),
-                accuracy_1, step
-            )
-            writer.add_scalar(
-                'accuracy_%s/%s/%s/%s' %
-                (k, eval_title, self.name, task_index), accuracy_k, step
-            )
-            writer.add_scalar(
-                'accuracy_expert/%s/%s/%s' %
-                (eval_title, self.name, task_index), accuracy_expert, step
-            )
-            writer.add_scalar(
-                'accuracy_assign/%s/%s/%s' %
-                (eval_title, self.name, task_index), accuracy_assign, step
-            )
-
-        # Overall accuracies
-        accuracy_1 = correct_1_overall / total_overall
-        accuracy_k = correct_k_overall / total_overall
-        accuracy_expert = correct_expert_overall / total_overall
-        accuracy_assign = correct_assign_overall / total_overall
-
-        # Summarize overall accuracies
-        writer.add_scalar(
-            'accuracy_1/%s/%s/overall' % (eval_title, self.name),
-            accuracy_1, step
-        )
-        writer.add_scalar(
-            'accuracy_%s/%s/%s/overall' % (k, eval_title, self.name),
-            accuracy_k, step
-        )
-        writer.add_scalar(
-            'accuracy_expert/%s/%s/overall' %
-            (eval_title, self.name), accuracy_expert, step
-        )
-        writer.add_scalar(
-            'accuracy_assign/%s/%s/overall' %
-            (eval_title, self.name), accuracy_assign, step
-        )
+    def collate_fn(self, batch):
+        return default_collate(batch)
 
     def offset_label(self):
         if 'label_offset' not in self.config:
