@@ -216,11 +216,11 @@ class DataScheduler(Iterator):
             accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
 
             writer.add_scalar(
-                'accuracy_y/%s/task_%s(%s)' % (eval_title, str(task_id), description),
+                'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
                 accuracy_y, step
             )
             writer.add_scalar(
-                'accuracy_d/%s/task_%s(%s)' % (eval_title, str(task_id), description),
+                'accuracy_d/%s/task_%s_%s' % (eval_title, str(task_id), description),
                 accuracy_d, step
             )
             return accuracy_d, accuracy_y
@@ -233,7 +233,7 @@ class DataScheduler(Iterator):
 
         for dataset_name, subset_name in task_subsets:
             if previous_dataset_name is None or previous_dataset_name != dataset_name:
-                description += dataset_name + ":"
+                description += dataset_name
             previous_dataset_name = dataset_name
             description += str(subset_name)
 
@@ -263,7 +263,8 @@ class DataScheduler(Iterator):
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             eval_data_loader, description = self.get_dataloader(stage['subsets'])
-            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description, eval_data_loader,
+            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description,
+                                                    eval_data_loader,
                                                     self.config['batch_size'])
 
 
