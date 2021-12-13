@@ -5,8 +5,6 @@
 data_root: 'data_files'
 batch_size: 16
 num_workers: 6
-sleep_batch_size: 50
-sleep_num_workers: 2
 eval_batch_size: 16
 eval_num_workers: 6
 
@@ -25,82 +23,9 @@ x_w: 28
 y_c: 10
 
 device: 'cuda'
-
 testing_mode: True
-
 model_name: 'diva'
-g: 'mlp_sharing_vae'
-d: 'mlp_sharing_classifier'
-disable_d: False
-vae_nf_base: 64
-vae_nf_ext: 16
-cls_nf_base: 64
-cls_nf_ext: 16
-z_dim: 16
-z_samples: 16
-
 recon_loss: 'gaussian'
-x_log_var_param: 0
-learn_x_log_var: false
-classifier_chill: 0.01
-
-
-#########
-# DPMoE #
-#########
-
-log_alpha: -400
-stm_capacity: 500
-stm_erase_period: 0
-sleep_step_g: 8000
-sleep_step_d: 2000
-sleep_summary_step: 500
-sleep_val_size: 0
-update_min_usage: 0.1
-
-
-#########
-# Train #
-#########
-
-implicit_lr_decay: false
-weight_decay: 0.00001
-
-optimizer_g:
-  type: Adam
-  options:
-    lr: 0.0004
-
-lr_scheduler_g:
-  type: MultiStepLR
-  options:
-    milestones: [1]
-    gamma: 1.0
-
-optimizer_d:
-  type: Adam
-  options:
-    lr: 0.0001
-
-lr_scheduler_d:
-  type: MultiStepLR
-  options:
-    milestones: [1]
-    gamma: 1.0
-
-clip_grad:
-  type: value
-  options:
-    clip_value: 0.5
-
-
-########
-# Eval #
-########
-
-eval_d: True
-eval_g: False
-eval_t: False
 
 ###########
 # Summary #
@@ -109,8 +34,6 @@ eval_t: False
 summary_step: 250
 eval_step: 250
 summarize_samples: False
-
-
 
 
 ################
@@ -132,7 +55,7 @@ diva:
   list_test_domains: '75'
 
   # Model
-  d_dim: 5
+  d_dim: 3
   x_dim: 784
   y_dim: 10
   zd_dim: 64
@@ -151,12 +74,6 @@ diva:
 #  w: 100
 #  warmup: 100
 #
-#  parser.add_argument('--beta_d', type=float, default=1.,
-#                      help='multiplier for KL d')
-#  parser.add_argument('--beta_x', type=float, default=1.,
-#                      help='multiplier for KL x')
-#  parser.add_argument('--beta_y', type=float, default=1.,
-#                      help='multiplier for KL y')
 #
 #  parser.add_argument('-w', '--warmup', type=int, default=100, metavar='N',
 #                      help='number of epochs for warm-up. Set to 0 to turn warmup off.')
