@@ -8,7 +8,7 @@ from data import DataScheduler
 from models.model_diva import DIVA
 from train import train_model
 
-MODEL ={
+MODEL = {
     "diva": DIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
@@ -23,7 +23,6 @@ parser.add_argument(
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
-
 
 
 def main():
@@ -55,7 +54,8 @@ def main():
     config['log_dir'] = args.log_dir
     if os.path.exists(args.log_dir):
         print('WARNING: %s already exists' % args.log_dir)
-        input('Press enter to continue')
+        if not config['testing_mode']:
+            input('Press enter to continue')
 
     # Save config
     os.makedirs(config['log_dir'], mode=0o755, exist_ok=True)
@@ -76,12 +76,15 @@ def main():
 
 
 def test_dataset(scheduler):
-    for step, (x, y, d) in enumerate(scheduler):
+    prev_t = -1
+    for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
-        print(x.shape)
-        print(y.shape)
-        print(d.shape)
-        # print(x.shape, y.shape, d.shape)
+        if prev_t != t:
+            prev_t = t
+            if y is None:
+                print("X", x.shape, "Y is None", "d", d, "step", step, "task id", t)
+            else:
+                print("X", x.shape, "Y", y.shape, "d", d, "step", step, "task id", t)
 
 
 if __name__ == '__main__':

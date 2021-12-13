@@ -4,6 +4,7 @@ from functools import reduce
 import os
 import math
 import torch
+
 from torch.utils.data import (
     Dataset,
     ConcatDataset,
@@ -11,6 +12,10 @@ from torch.utils.data import (
     DataLoader,
     RandomSampler,
 )
+
+from PIL import Image
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 from torch.utils.data.dataloader import default_collate
 import torchvision
 import torchvision.transforms as transforms
@@ -31,6 +36,7 @@ class DataScheduler(Iterator):
         self.total_step = 0
         self.stage = -1
 
+        self.domain_num = 0
         # Prepare training datasets
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
@@ -40,11 +46,12 @@ class DataScheduler(Iterator):
                     stage_total += len(
                         self.datasets[dataset_name].subsets[subset_name])
                     continue
-                self.datasets[dataset_name] = DATASET[dataset_name](config)
+                self.datasets[dataset_name] = DATASET[dataset_name](config, self.domain_num)
                 if self.schedule['test']['include-training-task']:
                     self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                        config, train=False
+                        config, self.domain_num, train=False
                     )
+                self.domain_num += 1
                 stage_total += len(
                     self.datasets[dataset_name].subsets[subset_name])
 
@@ -67,8 +74,9 @@ class DataScheduler(Iterator):
                 if dataset_name in self.eval_datasets:
                     continue
                 self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                    config, train=False
+                    config, self.domain_num, train=False
                 )
+                self.domain_num += 1
 
         self.iterator = None
         self.task = None
@@ -130,11 +138,11 @@ class DataScheduler(Iterator):
 
         # Get next data
         if self.task == "supervised":
-            return data[0], data[1], self.stage
+            return data[0], data[1], data[2], self.stage
         elif self.task == "unsupervised":
-            return data[0], None, self.stage
+            return data[0], None, data[2], self.stage
         else:
-            print("task type is wrong it should be supervised or unsupervised but it is "+str(self.task))
+            print("task type is wrong it should be supervised or unsupervised but it is " + str(self.task))
             raise StopIteration
 
     def __len__(self):
@@ -469,7 +477,9 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
     name = 'mnist'
     num_classes = 10
 
-    def __init__(self, config, train=True):
+    def __init__(self, config, domain_id, train=True):
+        self.domain_id = domain_id
+
         # Compose transformation
         transform_list = [
             transforms.Resize((config['x_h'], config['x_w'])),
@@ -500,12 +510,17 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
 
         self.offset_label()
 
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = super(MNIST, self).__getitem__(index)
+        return img, target, self.domain_id
+
 
 class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
     name = 'svhn'
     num_classes = 10
 
-    def __init__(self, config, train=True):
+    def __init__(self, config, domain_id, train=True):
+        self.domain_id = domain_id
         # Compose transformation
         transform_list = [
             transforms.Resize((config['x_h'], config['x_w'])),
@@ -531,12 +546,16 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
 
         self.offset_label()
 
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = super(SVHN, self).__getitem__(index)
+        return img, target, self.domain_id
 
 class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
     name = 'cifar10'
     num_classes = 10
 
-    def __init__(self, config, train=True):
+    def __init__(self, config, domain_id, train=True):
+        self.domain_id = domain_id
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -565,11 +584,17 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
 
         self.offset_label()
 
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = super(CIFAR10, self).__getitem__(index)
+        return img, target, self.domain_id
+
+
 class USPS(torchvision.datasets.USPS, ClassificationDataset):
     name = 'usps'
     num_classes = 10
 
-    def __init__(self, config, train=True):
+    def __init__(self, config, domain_id, train=True):
+        self.domain_id = domain_id
         if config.get('augment_usps'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -598,12 +623,17 @@ class USPS(torchvision.datasets.USPS, ClassificationDataset):
 
         self.offset_label()
 
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = super(USPS, self).__getitem__(index)
+        return img, target, self.domain_id
+
 
 class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
     name = 'cifar100'
     num_classes = 100
 
-    def __init__(self, config, train=True):
+    def __init__(self, config, domain_id, train=True):
+        self.domain_id = domain_id
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -631,6 +661,10 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
             )
 
         self.offset_label()
+
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = super(CIFAR100, self).__getitem__(index)
+        return img, target, self.domain_id
 
 
 DATASET = {

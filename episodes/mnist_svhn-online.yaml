@@ -7,6 +7,18 @@ train:
               ['mnist', 8], ['mnist', 9]]
 
   - task: 'supervised'
+    subsets: [['mnist', 0], ['mnist', 1],
+              ['mnist', 2], ['mnist', 3]]
+
+  - task: 'supervised'
+    subsets: [['mnist', 0], ['mnist', 1],
+              ['usps', 2], ['usps', 3]]
+
+  - task: 'unsupervised'
+    subsets: [['usps', 0], ['usps', 1],
+              ['usps', 2], ['usps', 3]]
+
+  - task: 'supervised'
     subsets: [['svhn', 0], ['svhn', 1],
               ['svhn', 2], ['svhn', 3],
               ['svhn', 4], ['svhn', 5],

@@ -26,6 +26,8 @@ y_c: 10
 
 device: 'cuda'
 
+testing_mode: True
+
 model_name: 'ndpm_model'
 g: 'mlp_sharing_vae'
 d: 'mlp_sharing_classifier'
