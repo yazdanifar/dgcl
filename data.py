@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from collections import Iterator, OrderedDict
 from functools import reduce
@@ -39,7 +40,7 @@ class DataScheduler(Iterator):
         self.total_step = 0
         self.stage = -1
 
-        self.domain_num = 0
+        self.domain_num_count = 0
         # Prepare training datasets
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
@@ -49,12 +50,12 @@ class DataScheduler(Iterator):
                     stage_total += len(
                         self.datasets[dataset_name].subsets[subset_name])
                     continue
-                self.datasets[dataset_name] = DATASET[dataset_name](config, self.domain_num)
+                self.datasets[dataset_name] = DATASET[dataset_name](config, self.domain_num_count)
                 if self.schedule['test']['include-training-task']:
                     self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                        config, self.domain_num, train=False
+                        config, self.domain_num_count, train=False
                     )
-                self.domain_num += 1
+                self.domain_num_count += 1
                 stage_total += len(
                     self.datasets[dataset_name].subsets[subset_name])
 
@@ -78,12 +79,23 @@ class DataScheduler(Iterator):
                     if dataset_name in self.eval_datasets:
                         continue
                     self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                        config, self.domain_num, train=False
+                        config, self.domain_num_count, train=False
                     )
-                    self.domain_num += 1
+                    self.domain_num_count += 1
 
         self.iterator = None
         self.task = None
+
+        # check the domain dimension
+
+        domain_dim_problem_message = "datasets has {} domains but model prepare for {} domains".format(
+            self.domain_num_count, self.domain_num)
+        assert self.domain_num_count < self.domain_num, domain_dim_problem_message
+
+        if self.domain_num_count != self.domain_num:
+            warnings.warn(domain_dim_problem_message)
+
+
 
     def __next__(self):
         try:
@@ -161,12 +173,13 @@ class DataScheduler(Iterator):
 
         with torch.no_grad():
             # use the right data loader
+            y_eye = torch.eye(self.class_num)
+            d_eye = torch.eye(self.domain_num)
             for (xs, ys, ds) in data_loader:
-                y_eye = torch.eye(self.class_num)
                 ys = y_eye[ys]
 
                 # Convert to onehot
-                d_eye = torch.eye(self.domain_num)
+
                 ds = d_eye[ds]
 
                 # To device
