@@ -84,7 +84,7 @@ def train_model(config, model: DIVA,
         # Evaluate the model
 
         if step % config['eval_step'] == 0:
-            scheduler.eval(model, model.classifier, writer, step, 'model')
+            scheduler.eval(model, model.classifier, writer, step, 'diva')
 
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)

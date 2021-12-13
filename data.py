@@ -210,6 +210,14 @@ class DataScheduler(Iterator):
             # calculate the accuracy between 0 and 1
             accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
 
+            writer.add_scalar(
+                'accuracy_y/%s/task%s' % (eval_title, str(task_id)),
+                accuracy_y, step
+            )
+            writer.add_scalar(
+                'accuracy_d/%s/task%s' % (eval_title, str(task_id)),
+                accuracy_d, step
+            )
             return accuracy_d, accuracy_y
 
     def get_dataloader(self, task_subsets):
@@ -234,6 +242,12 @@ class DataScheduler(Iterator):
         return eval_data_loader
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
+
+        writer.add_scalar(
+            'stage/%s' % (eval_title),
+            self.stage, step
+        )
+
         if self.schedule['test']['include-training-task']:
             for i, stage in enumerate(self.schedule['train']):
                 # shouldn't use self.task and self.stage
