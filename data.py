@@ -197,7 +197,7 @@ class DataScheduler(Iterator):
             for pred, act in zip(predictions_d, actuals_d):
                 for i in range(pred.size(0)):
                     v = torch.sum(pred[i] == act[i])
-                    accurate_preds_d += (v.item() == 5)
+                    accurate_preds_d += (v.item() == self.domain_num)
 
             # calculate the accuracy between 0 and 1
             accuracy_d = (accurate_preds_d * 1.0) / (len(predictions_d) * batch_size)
@@ -207,7 +207,7 @@ class DataScheduler(Iterator):
             for pred, act in zip(predictions_y, actuals_y):
                 for i in range(pred.size(0)):
                     v = torch.sum(pred[i] == act[i])
-                    accurate_preds_y += (v.item() == 10)
+                    accurate_preds_y += (v.item() == self.class_num)
 
             # calculate the accuracy between 0 and 1
             accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
@@ -218,7 +218,6 @@ class DataScheduler(Iterator):
         if self.schedule['test']['include-training-task']:
             for i, stage in enumerate(self.schedule['train']):
                 # shouldn't use self.task and self.stage
-                task = stage['task']
                 collate_fn = list(self.datasets.values())[0].collate_fn
                 subsets = []
                 for dataset_name, subset_name in stage['subsets']:
@@ -237,8 +236,9 @@ class DataScheduler(Iterator):
                     sampler=sampler,
                     drop_last=True,
                 )
-                self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
+                accuracy_d, accuracy_y=self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
                                self.config['batch_size'])
+                print("task ", i, "y acc", round(accuracy_y,3), "d acc", round(accuracy_d,3))
 
 
 class BaseDataset(Dataset, ABC):
@@ -260,30 +260,6 @@ class BaseDataset(Dataset, ABC):
                 model, writer, step, eval_title,
                 task_index=task_index
             )
-
-    @abstractmethod
-    def _eval_hard_assign(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_titlem, task_index=None):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _eval_discriminative_model(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_title):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _eval_generative_model(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_title):
-        raise NotImplementedError
 
     def collate_fn(self, batch):
         return default_collate(batch)
@@ -426,120 +402,6 @@ class ClassificationDataset(BaseDataset, ABC):
             'accuracy_assign/%s/%s/overall' %
             (eval_title, self.name), accuracy_assign, step
         )
-
-    def _eval_discriminative_model(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_title):
-        training = model.training
-        model.eval()
-
-        K = 5
-        totals = []
-        corrects_1 = []
-        corrects_k = []
-
-        # Accuracy of each subset
-        for subset_name, subset in self.subsets.items():
-            data = DataLoader(
-                subset,
-                batch_size=self.config['eval_batch_size'],
-                num_workers=self.config['eval_num_workers'],
-                collate_fn=self.collate_fn,
-            )
-            total = 0.
-            correct_1 = 0.
-            correct_k = 0.
-
-            for x, y in iter(data):
-                b = x.size(0)
-                with torch.no_grad():
-                    logits = model(x).view(b, -1)
-                # [B, K]
-                _, pred_topk = logits.topk(K, dim=1)
-                correct_topk = (
-                        pred_topk.cpu() == y.view(b, -1).expand_as(pred_topk)
-                ).float()
-                correct_1 += correct_topk[:, :1].view(-1).cpu().sum()
-                correct_k += correct_topk[:, :K].view(-1).cpu().sum()
-                total += x.size(0)
-            totals.append(total)
-            corrects_1.append(correct_1)
-            corrects_k.append(correct_k)
-            accuracy_1 = correct_1 / total
-            accuracy_k = correct_k / total
-            writer.add_scalar(
-                'accuracy_1/%s/%s/%s' % (eval_title, self.name, subset_name),
-                accuracy_1, step
-            )
-            writer.add_scalar(
-                'accuracy_%d/%s/%s/%s' %
-                (K, eval_title, self.name, subset_name), accuracy_k, step
-            )
-
-        # Overall accuracy
-        total = sum(totals)
-        correct_1 = sum(corrects_1)
-        correct_k = sum(corrects_k)
-        accuracy_1 = correct_1 / total
-        accuracy_k = correct_k / total
-        writer.add_scalar(
-            'accuracy_1/%s/%s/overall' % (eval_title, self.name),
-            accuracy_1, step
-        )
-        writer.add_scalar(
-            'accuracy_%d/%s/%s/overall' % (K, eval_title, self.name),
-            accuracy_k, step
-        )
-        model.train(training)
-
-    def _eval_generative_model(
-            self,
-            model,
-            writer: SummaryWriter,
-            step, eval_title):
-        # change the model to eval mode
-        training = model.training
-        z_samples = model.config['z_samples']
-        model.eval()
-        model.config['z_samples'] = 16
-        # evaluate generative model on each subset
-        subset_counts = []
-        subset_cumulative_bpds = []
-        for subset_name, subset in self.subsets.items():
-            data = DataLoader(
-                subset,
-                batch_size=self.config['eval_batch_size'],
-                num_workers=self.config['eval_num_workers'],
-                collate_fn=self.collate_fn,
-            )
-            subset_count = 0
-            subset_cumulative_bpd = 0
-            # evaluate on a subset
-            for x, _ in iter(data):
-                dim = reduce(lambda x, y: x * y, x.size()[1:])
-                with torch.no_grad():
-                    ll = model(x)
-                bpd = -ll / math.log(2) / dim
-                subset_count += x.size(0)
-                subset_cumulative_bpd += bpd.sum()
-            # append the subset evaluation result
-            subset_counts.append(subset_count)
-            subset_cumulative_bpds.append(subset_cumulative_bpd)
-            subset_bpd = subset_cumulative_bpd / subset_count
-            writer.add_scalar(
-                'bpd/%s/%s/%s' % (eval_title, self.name, subset_name),
-                subset_bpd, step
-            )
-        # Overall accuracy
-        overall_bpd = sum(subset_cumulative_bpds) / sum(subset_counts)
-        writer.add_scalar(
-            'bpd/%s/%s/overall' % (eval_title, self.name), overall_bpd, step
-        )
-        # roll back the mode
-        model.train(training)
-        model.config['z_samples'] = z_samples
 
     def offset_label(self):
         if 'label_offset' not in self.config:
