@@ -235,7 +235,7 @@ class DataScheduler(Iterator):
             if previous_dataset_name is None or previous_dataset_name != dataset_name:
                 description += dataset_name + ":"
             previous_dataset_name = dataset_name
-            description += subset_name
+            description += str(subset_name)
 
             subsets.append(
                 self.eval_datasets[dataset_name].subsets[subset_name])
