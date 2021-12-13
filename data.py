@@ -82,12 +82,17 @@ class DataScheduler(Iterator):
                         config, self.domain_num_count, train=False
                     )
                     self.domain_num_count += 1
+        else:
+            self.schedule['test']['tasks'] = []
+
+        # combine evaluation tasks
+        if self.schedule['test']['include-training-task']:
+            self.schedule['test']['tasks'] = self.schedule['train'] + self.schedule['test']['tasks']
 
         self.iterator = None
         self.task = None
 
         # check the domain dimension
-
         domain_dim_problem_message = "datasets has {} domains but model prepare for {} domains".format(
             self.domain_num_count, self.domain_num)
         assert self.domain_num_count <= self.domain_num, domain_dim_problem_message
@@ -162,7 +167,7 @@ class DataScheduler(Iterator):
     def __len__(self):
         return self.total_step
 
-    def eval_task(self, model, classifier_fn, writer, step, eval_title, task_id, data_loader, batch_size):
+    def eval_task(self, model, classifier_fn, writer, step, eval_title, task_id, description, data_loader, batch_size):
         model.eval()  # TODO: what is this?
         """
         compute the accuracy over the supervised training set or the testing set
@@ -211,11 +216,11 @@ class DataScheduler(Iterator):
             accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
 
             writer.add_scalar(
-                'accuracy_y/%s/task%s' % (eval_title, str(task_id)),
+                'accuracy_y/%s/task_%s(%s)' % (eval_title, str(task_id), description),
                 accuracy_y, step
             )
             writer.add_scalar(
-                'accuracy_d/%s/task%s' % (eval_title, str(task_id)),
+                'accuracy_d/%s/task_%s(%s)' % (eval_title, str(task_id), description),
                 accuracy_d, step
             )
             return accuracy_d, accuracy_y
@@ -223,7 +228,15 @@ class DataScheduler(Iterator):
     def get_dataloader(self, task_subsets):
         collate_fn = list(self.datasets.values())[0].collate_fn
         subsets = []
+        description = ""
+        previous_dataset_name = None
+
         for dataset_name, subset_name in task_subsets:
+            if previous_dataset_name is None or previous_dataset_name != dataset_name:
+                description += dataset_name + ":"
+            previous_dataset_name = dataset_name
+            description += subset_name
+
             subsets.append(
                 self.eval_datasets[dataset_name].subsets[subset_name])
         dataset = ConcatDataset(subsets)
@@ -239,7 +252,7 @@ class DataScheduler(Iterator):
             sampler=sampler,
             drop_last=True,
         )
-        return eval_data_loader
+        return eval_data_loader, description
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
 
@@ -248,18 +261,9 @@ class DataScheduler(Iterator):
             self.stage, step
         )
 
-        if self.schedule['test']['include-training-task']:
-            for i, stage in enumerate(self.schedule['train']):
-                # shouldn't use self.task and self.stage
-                eval_data_loader = self.get_dataloader(stage['subsets'])
-                accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i,
-                                                        eval_data_loader,
-                                                        self.config['batch_size'])
-
         for i, stage in enumerate(self.schedule['test']['tasks']):
-            i += len(self.schedule['train']) if self.schedule['test']['include-training-task'] else 0
-            eval_data_loader = self.get_dataloader(stage['subsets'])
-            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
+            eval_data_loader, description = self.get_dataloader(stage['subsets'])
+            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description, eval_data_loader,
                                                     self.config['batch_size'])
 
 
