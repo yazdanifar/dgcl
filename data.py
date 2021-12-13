@@ -90,7 +90,7 @@ class DataScheduler(Iterator):
 
         domain_dim_problem_message = "datasets has {} domains but model prepare for {} domains".format(
             self.domain_num_count, self.domain_num)
-        assert self.domain_num_count < self.domain_num, domain_dim_problem_message
+        assert self.domain_num_count <= self.domain_num, domain_dim_problem_message
 
         if self.domain_num_count != self.domain_num:
             warnings.warn(domain_dim_problem_message)
