@@ -95,8 +95,6 @@ class DataScheduler(Iterator):
         if self.domain_num_count != self.domain_num:
             warnings.warn(domain_dim_problem_message)
 
-
-
     def __next__(self):
         try:
             if self.iterator is None:
@@ -214,31 +212,43 @@ class DataScheduler(Iterator):
 
             return accuracy_d, accuracy_y
 
+    def get_dataloader(self, task_subsets):
+        collate_fn = list(self.datasets.values())[0].collate_fn
+        subsets = []
+        for dataset_name, subset_name in task_subsets:
+            subsets.append(
+                self.eval_datasets[dataset_name].subsets[subset_name])
+        dataset = ConcatDataset(subsets)
+
+        # Determine sampler
+        sampler = RandomSampler(dataset)
+
+        eval_data_loader = DataLoader(
+            dataset,
+            batch_size=self.config['batch_size'],
+            num_workers=self.config['num_workers'],
+            collate_fn=collate_fn,
+            sampler=sampler,
+            drop_last=True,
+        )
+        return eval_data_loader
+
     def eval(self, model, classifier_fn, writer, step, eval_title):
         if self.schedule['test']['include-training-task']:
             for i, stage in enumerate(self.schedule['train']):
                 # shouldn't use self.task and self.stage
-                collate_fn = list(self.datasets.values())[0].collate_fn
-                subsets = []
-                for dataset_name, subset_name in stage['subsets']:
-                    subsets.append(
-                        self.eval_datasets[dataset_name].subsets[subset_name])
-                dataset = ConcatDataset(subsets)
+                eval_data_loader = self.get_dataloader(stage['subsets'])
+                accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i,
+                                                        eval_data_loader,
+                                                        self.config['batch_size'])
+                print("task ", i, "y acc", round(accuracy_y, 3), "d acc", round(accuracy_d, 3))
 
-                # Determine sampler
-                sampler = RandomSampler(dataset)
-
-                eval_data_loader = DataLoader(
-                    dataset,
-                    batch_size=self.config['batch_size'],
-                    num_workers=self.config['num_workers'],
-                    collate_fn=collate_fn,
-                    sampler=sampler,
-                    drop_last=True,
-                )
-                accuracy_d, accuracy_y=self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
-                               self.config['batch_size'])
-                print("task ", i, "y acc", round(accuracy_y,3), "d acc", round(accuracy_d,3))
+        for i, stage in enumerate(self.schedule['test']['tasks']):
+            i += len(self.schedule['train']) if self.schedule['test']['include-training-task'] else 0
+            eval_data_loader = self.get_dataloader(stage['subsets'])
+            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
+                                                    self.config['batch_size'])
+            print("task ", i, "y acc", round(accuracy_y, 3), "d acc", round(accuracy_d, 3))
 
 
 class BaseDataset(Dataset, ABC):
