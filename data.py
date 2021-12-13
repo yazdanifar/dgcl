@@ -566,6 +566,7 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
         # Compose transformation
         transform_list = [
             transforms.Resize((config['x_h'], config['x_w'])),
+            transforms.Grayscale(num_output_channels=config['x_c']),
             transforms.ToTensor(),
         ]
         if config['recon_loss'] == 'bernoulli':
@@ -607,6 +608,7 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
         # Compose transformation
         transform_list = [
             transforms.Resize((config['x_h'], config['x_w'])),
+            transforms.Grayscale(num_output_channels=config['x_c']),
             transforms.ToTensor(),
         ]
         transform = transforms.Compose(transform_list)
@@ -643,6 +645,7 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomRotation(15),
@@ -651,6 +654,7 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
         else:
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                torchvision.transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.ToTensor(),
             ])
         torchvision.datasets.CIFAR10.__init__(
@@ -682,6 +686,7 @@ class USPS(torchvision.datasets.USPS, ClassificationDataset):
         if config.get('augment_usps'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomRotation(15),
@@ -690,6 +695,7 @@ class USPS(torchvision.datasets.USPS, ClassificationDataset):
         else:
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                torchvision.transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.ToTensor(),
             ])
         torchvision.datasets.USPS.__init__(
@@ -721,6 +727,7 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomRotation(15),
@@ -729,6 +736,7 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
         else:
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
+                torchvision.transforms.Grayscale(num_output_channels=config['x_c']),
                 transforms.ToTensor(),
             ])
         torchvision.datasets.CIFAR100.__init__(
