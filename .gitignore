@@ -1,0 +1,12 @@
+
+# pycharm files
+.idea
+
+# dataset files
+data_files
+
+#logs
+logs
+
+
+
