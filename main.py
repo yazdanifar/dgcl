@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import datetime
+import shutil
 from argparse import ArgumentParser
 import os
 import yaml
@@ -19,7 +21,7 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/simple_mnist_for_test.yaml'
+    '--episode', '-e', default='episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -51,11 +53,14 @@ def main():
         here[keys[-1]] = yaml.load(value, Loader=yaml.FullLoader)
 
     # Set log directory
-    config['log_dir'] = args.log_dir
+    current_time=datetime.datetime.now().strftime("_%H_%M_%S")
+    config['log_dir'] = args.log_dir+current_time
     if os.path.exists(args.log_dir):
         print('WARNING: %s already exists' % args.log_dir)
         if not config['testing_mode']:
             input('Press enter to continue')
+        shutil.rmtree(config['log_dir'])
+
 
     # Save config
     os.makedirs(config['log_dir'], mode=0o755, exist_ok=True)
