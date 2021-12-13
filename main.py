@@ -16,10 +16,10 @@ MODEL ={
 
 parser = ArgumentParser()
 parser.add_argument(
-    '--config', '-c', default='configs/mlp_classifier-mlp_vae-split_mnist.yaml'
+    '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/mnist-split-online.yaml'
+    '--episode', '-e', default='episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -67,10 +67,21 @@ def main():
 
     # Build components
     data_scheduler = DataScheduler(config)
+    test_dataset(data_scheduler)
+    return
     writer = SummaryWriter(config['log_dir'])
     model = MODEL[config['model_name']](config, writer)
     model.to(config['device'])
     train_model(config, model, data_scheduler, writer)
+
+
+def test_dataset(scheduler):
+    for step, (x, y, d) in enumerate(scheduler):
+        step += 1
+        print(x.shape)
+        print(y.shape)
+        print(d.shape)
+        # print(x.shape, y.shape, d.shape)
 
 
 if __name__ == '__main__':
