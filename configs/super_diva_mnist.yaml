@@ -4,11 +4,11 @@
 
 data_root: 'data_files'
 batch_size: 16
-num_workers: 8
+num_workers: 6
 sleep_batch_size: 50
-sleep_num_workers: 4
-eval_batch_size: 256
-eval_num_workers: 4
+sleep_num_workers: 2
+eval_batch_size: 16
+eval_num_workers: 6
 
 label_offset:
   mnist: 0
@@ -28,7 +28,7 @@ device: 'cuda'
 
 testing_mode: True
 
-model_name: 'ndpm_model'
+model_name: 'diva'
 g: 'mlp_sharing_vae'
 d: 'mlp_sharing_classifier'
 disable_d: False
@@ -109,3 +109,92 @@ eval_t: False
 summary_step: 250
 eval_step: 250
 summarize_samples: False
+
+
+
+
+################
+# DIVA configs #
+################
+diva:
+  # Training settings
+  description: 'TwoTaskVae'
+  no-cuda: False
+  seed: 0
+  batch-size: 100
+  epochs: 500
+  lr: 0.001
+  num-supervised: 1000
+
+
+  # Choose domains
+  list_train_domains: ['0','15', '30','45','60','75']
+  list_test_domains: '75'
+
+  # Model
+  d_dim: 5
+  x_dim: 784
+  y_dim: 10
+  zd_dim: 64
+  zx_dim: 64
+  zy_dim: 64
+
+  # Aux multipliers
+  aux_loss_multiplier_y: 3500
+  aux_loss_multiplier_d: 2000
+
+  # Beta VAE part
+  beta_d: 1
+  beta_x: 1
+  beta_y: 1
+#
+#  w: 100
+#  warmup: 100
+#
+#  parser.add_argument('--beta_d', type=float, default=1.,
+#                      help='multiplier for KL d')
+#  parser.add_argument('--beta_x', type=float, default=1.,
+#                      help='multiplier for KL x')
+#  parser.add_argument('--beta_y', type=float, default=1.,
+#                      help='multiplier for KL y')
+#
+#  parser.add_argument('-w', '--warmup', type=int, default=100, metavar='N',
+#                      help='number of epochs for warm-up. Set to 0 to turn warmup off.')
+#  parser.add_argument('--max_beta', type=float, default=1., metavar='MB',
+#                      help='max beta for warm-up')
+#  parser.add_argument('--min_beta', type=float, default=0.0, metavar='MB',
+#                      help='min beta for warm-up')
+#
+#  parser.add_argument('--outpath', type=str, default='./',
+#                      help='where to save')
+#
+#  args = parser.parse_args()
+#  args.cuda = not args.no_cuda and torch.cuda.is_available()
+#  device = torch.device("cuda" if args.cuda else "cpu")
+#  kwargs = {'num_workers': 1, 'pin_memory': False} if args.cuda else {}
+#
+#  # Model name
+#  args.list_test_domain = [args.list_test_domain]
+#  print(args.outpath)
+#  model_name = args.outpath + 'test_domain_' + str(args.list_test_domain[0]) + '_diva_seed_' + str(
+#      args.seed)
+#  print(model_name)
+#
+#  # Choose training domains
+#  all_training_domains = ['0', '15', '30', '45', '60', '75']
+#  all_training_domains.remove(args.list_test_domain[0])
+#  args.list_train_domains = all_training_domains
+#
+#  print(args.list_test_domain, args.list_train_domains)
+#
+#  # Set seed
+#  torch.manual_seed(args.seed)
+#  torch.backends.cudnn.benchmark = False
+#  np.random.seed(args.seed)
+#
+#  # Load supervised training
+#  train_loader = data_utils.DataLoader(
+#      MnistRotated(args.list_train_domains, args.list_test_domain, args.num_supervised, args.seed, './../dataset/',
+#                   train=True),
+#      batch_size=args.batch_size,
+#      shuffle=True, **kwargs)

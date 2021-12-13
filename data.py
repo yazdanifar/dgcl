@@ -30,6 +30,9 @@ from tensorboardX import SummaryWriter
 class DataScheduler(Iterator):
     def __init__(self, config):
         self.config = config
+        self.device = config['device']
+        self.class_num = config['diva']['y_dim']
+        self.domain_num = config['diva']['d_dim']
         self.schedule = config['data_schedule']
         self.datasets = OrderedDict()
         self.eval_datasets = OrderedDict()
@@ -68,15 +71,16 @@ class DataScheduler(Iterator):
                 self.total_step += stage_total // config['batch_size']
 
         # Prepare testing datasets
-        for i, stage in enumerate(self.schedule['test']['tasks']):
-            for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name = subset
-                if dataset_name in self.eval_datasets:
-                    continue
-                self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                    config, self.domain_num, train=False
-                )
-                self.domain_num += 1
+        if self.schedule['test']['tasks'] is not None:
+            for i, stage in enumerate(self.schedule['test']['tasks']):
+                for j, subset in enumerate(stage['subsets']):
+                    dataset_name, subset_name = subset
+                    if dataset_name in self.eval_datasets:
+                        continue
+                    self.eval_datasets[dataset_name] = DATASET[dataset_name](
+                        config, self.domain_num, train=False
+                    )
+                    self.domain_num += 1
 
         self.iterator = None
         self.task = None
@@ -148,14 +152,80 @@ class DataScheduler(Iterator):
     def __len__(self):
         return self.total_step
 
-    def eval(self, model, writer, step, eval_title):
-        for i, eval_dataset in enumerate(self.eval_datasets.values()):
-            # NOTE: we assume that each task is a dataset in multi-dataset
-            # episode
-            eval_dataset.eval(
-                model, writer, step, eval_title,
-                task_index=(i if len(self.eval_datasets) > 1 else None)
-            )
+    def eval_task(self, model, classifier_fn, writer, step, eval_title, task_id, data_loader, batch_size):
+        model.eval()  # TODO: what is this?
+        """
+        compute the accuracy over the supervised training set or the testing set
+        """
+        predictions_d, actuals_d, predictions_y, actuals_y = [], [], [], []
+
+        with torch.no_grad():
+            # use the right data loader
+            for (xs, ys, ds) in data_loader:
+                y_eye = torch.eye(self.class_num)
+                ys = y_eye[ys]
+
+                # Convert to onehot
+                d_eye = torch.eye(self.domain_num)
+                ds = d_eye[ds]
+
+                # To device
+                xs, ys, ds = xs.to(self.device), ys.to(self.device), ds.to(self.device)
+
+                # use classification function to compute all predictions for each batch
+                pred_d, pred_y = classifier_fn(xs)
+                predictions_d.append(pred_d)
+                actuals_d.append(ds)
+                predictions_y.append(pred_y)
+                actuals_y.append(ys)
+
+            # compute the number of accurate predictions
+            accurate_preds_d = 0
+            for pred, act in zip(predictions_d, actuals_d):
+                for i in range(pred.size(0)):
+                    v = torch.sum(pred[i] == act[i])
+                    accurate_preds_d += (v.item() == 5)
+
+            # calculate the accuracy between 0 and 1
+            accuracy_d = (accurate_preds_d * 1.0) / (len(predictions_d) * batch_size)
+
+            # compute the number of accurate predictions
+            accurate_preds_y = 0
+            for pred, act in zip(predictions_y, actuals_y):
+                for i in range(pred.size(0)):
+                    v = torch.sum(pred[i] == act[i])
+                    accurate_preds_y += (v.item() == 10)
+
+            # calculate the accuracy between 0 and 1
+            accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
+
+            return accuracy_d, accuracy_y
+
+    def eval(self, model, classifier_fn, writer, step, eval_title):
+        if self.schedule['test']['include-training-task']:
+            for i, stage in enumerate(self.schedule['train']):
+                # shouldn't use self.task and self.stage
+                task = stage['task']
+                collate_fn = list(self.datasets.values())[0].collate_fn
+                subsets = []
+                for dataset_name, subset_name in stage['subsets']:
+                    subsets.append(
+                        self.eval_datasets[dataset_name].subsets[subset_name])
+                dataset = ConcatDataset(subsets)
+
+                # Determine sampler
+                sampler = RandomSampler(dataset)
+
+                eval_data_loader = DataLoader(
+                    dataset,
+                    batch_size=self.config['batch_size'],
+                    num_workers=self.config['num_workers'],
+                    collate_fn=collate_fn,
+                    sampler=sampler,
+                    drop_last=True,
+                )
+                self.eval_task(model, classifier_fn, writer, step, eval_title, i, eval_data_loader,
+                               self.config['batch_size'])
 
 
 class BaseDataset(Dataset, ABC):
@@ -549,6 +619,7 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
         img, target = super(SVHN, self).__getitem__(index)
         return img, target, self.domain_id
+
 
 class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
     name = 'cifar10'

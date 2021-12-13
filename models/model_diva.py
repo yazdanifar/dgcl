@@ -203,12 +203,12 @@ class qy(nn.Module):
 class DIVA(nn.Module):
     def __init__(self, args, writer: SummaryWriter):
         super(DIVA, self).__init__()
-        self.zd_dim = args.zd_dim
-        self.zx_dim = args.zx_dim
-        self.zy_dim = args.zy_dim
-        self.d_dim = args.d_dim
-        self.x_dim = args.x_dim
-        self.y_dim = args.y_dim
+        self.zd_dim = args['zd_dim']
+        self.zx_dim = args['zx_dim']
+        self.zy_dim = args['zy_dim']
+        self.d_dim = args['d_dim']
+        self.x_dim = args['x_dim']
+        self.y_dim = args['y_dim']
         self.writer = writer
 
         self.start_zx = self.zd_dim
@@ -226,12 +226,12 @@ class DIVA(nn.Module):
         self.qd = qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
         self.qy = qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
-        self.aux_loss_multiplier_y = args.aux_loss_multiplier_y
-        self.aux_loss_multiplier_d = args.aux_loss_multiplier_d
+        self.aux_loss_multiplier_y = args['aux_loss_multiplier_y']
+        self.aux_loss_multiplier_d = args['aux_loss_multiplier_d']
 
-        self.beta_d = args.beta_d
-        self.beta_x = args.beta_x
-        self.beta_y = args.beta_y
+        self.beta_d = args['beta_d']
+        self.beta_x = args['beta_x']
+        self.beta_y = args['beta_y']
 
         self.cuda()
 
