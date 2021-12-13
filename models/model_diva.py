@@ -394,12 +394,6 @@ class DIVA(nn.Module):
                    + self.aux_loss_multiplier_y * CE_y,\
                    CE_y
 
-    def learn(self, x, y, d):
-        if y is None:
-            #unsuperwise
-
-        else:
-
 
     def classifier(self, x):
         """
