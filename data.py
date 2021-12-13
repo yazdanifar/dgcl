@@ -65,11 +65,10 @@ class DataScheduler(Iterator):
             for j, subset in enumerate(stage['subsets']):
                 dataset_name, subset_name = subset
                 if dataset_name in self.eval_datasets:
-                    dataset_name, subset_name = subset
-                    self.datasets[dataset_name] = DATASET[dataset_name](config)
-                    self.eval_datasets[dataset_name] = DATASET[dataset_name](
-                        config, train=False
-                    )
+                    continue
+                self.eval_datasets[dataset_name] = DATASET[dataset_name](
+                    config, train=False
+                )
 
         self.iterator = None
         self.task = None
@@ -87,7 +86,7 @@ class DataScheduler(Iterator):
                 raise StopIteration
 
             stage = self.schedule['train'][self.stage]
-            task = stage['task']
+            self.task = stage['task']
             collate_fn = list(self.datasets.values())[0].collate_fn
             subsets = []
             for dataset_name, subset_name in stage['subsets']:
@@ -135,7 +134,7 @@ class DataScheduler(Iterator):
         elif self.task == "unsupervised":
             return data[0], None, self.stage
         else:
-            print("task name is wrong")
+            print("task type is wrong it should be supervised or unsupervised but it is "+str(self.task))
             raise StopIteration
 
     def __len__(self):
@@ -566,6 +565,39 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
 
         self.offset_label()
 
+class USPS(torchvision.datasets.USPS, ClassificationDataset):
+    name = 'usps'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+        if config.get('augment_usps'):
+            transform = transforms.Compose([
+                transforms.Resize((config['x_h'], config['x_w'])),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ToTensor(),
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.Resize((config['x_h'], config['x_w'])),
+                transforms.ToTensor(),
+            ])
+        torchvision.datasets.USPS.__init__(
+            self, root=os.path.join(config['data_root'], 'usps'),
+            train=train, transform=transform, download=True)
+        ClassificationDataset.__init__(self, config, train)
+
+        # Create subset for each class
+        for y in range(self.num_classes):
+            self.subsets[y] = Subset(
+                self,
+                list((torch.Tensor(self.targets) == y
+                      ).nonzero().squeeze(1).numpy())
+            )
+
+        self.offset_label()
+
 
 class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
     name = 'cifar100'
@@ -604,6 +636,7 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
 DATASET = {
     MNIST.name: MNIST,
     SVHN.name: SVHN,
+    USPS.name: USPS,
     CIFAR10.name: CIFAR10,
     CIFAR100.name: CIFAR100,
 }
