@@ -2,6 +2,7 @@ import os
 import pickle
 import torch
 from tensorboardX import SummaryWriter
+from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
 
