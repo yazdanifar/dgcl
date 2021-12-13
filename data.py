@@ -233,8 +233,8 @@ class DataScheduler(Iterator):
 
         eval_data_loader = DataLoader(
             dataset,
-            batch_size=self.config['batch_size'],
-            num_workers=self.config['num_workers'],
+            batch_size=self.config['eval_batch_size'],
+            num_workers=self.config['eval_num_workers'],
             collate_fn=collate_fn,
             sampler=sampler,
             drop_last=True,
