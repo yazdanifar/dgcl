@@ -283,24 +283,33 @@ class DIVA(nn.Module):
         if y is None:  # unsupervised
             # Do standard forward pass for everything not involving y
             zd_q_loc, zd_q_scale = self.qzd(x)
+            print()
+            print(f"zd: {zd_q_loc.shape} {zd_q_scale.shape}")
             if self.zx_dim != 0:
                 zx_q_loc, zx_q_scale = self.qzx(x)
             zy_q_loc, zy_q_scale = self.qzy(x)
 
+            print(f"zx: {zx_q_loc.shape} {zx_q_scale.shape}")
+            print(f"zy: {zy_q_loc.shape} {zy_q_scale.shape}")
+
             qzd = dist.Normal(zd_q_loc, zd_q_scale)
             zd_q = qzd.rsample()
+            print(f"new zd: {zd_q.shape} ")
             if self.zx_dim != 0:
                 qzx = dist.Normal(zx_q_loc, zx_q_scale)
                 zx_q = qzx.rsample()
             else:
                 zx_q = None
+            print(f"new zx: {zx_q.shape} ")
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
             zy_q = qzy.rsample()
-
+            print(f"new zy: {zy_q.shape}")
             zd_p_loc, zd_p_scale = self.pzd(d)
+            print(f"pzd: {zd_p_loc.shape} {zd_p_scale.shape}")
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
                                        torch.ones(zd_p_loc.size()[0], self.zx_dim).cuda()
+                print(f"pzx: {zx_p_loc.shape} {zx_p_scale.shape}")
 
             pzd = dist.Normal(zd_p_loc, zd_p_scale)
 
@@ -310,13 +319,15 @@ class DIVA(nn.Module):
                 pzx = None
 
             d_hat = self.qd(zd_q)
-
+            print(f"d_hat: {d_hat.shape} ex0: {d_hat[0]} ex1: {d_hat[1]}")
             x_recon = self.px(zd_q, zx_q, zy_q)
-
-            x_recon = x_recon.view(-1, 256)
-            x_target = (x.view(-1) * 255).long()
+            print(f"x_recon: {x_recon.shape}")
+            x_recon = x_recon.view(-1, 256)                                 # TODO: what is 256?
+            x_target = (x.view(-1) * 255).long()                            # TODO: 255 is general?
+            print(f"x_recon: {x_recon.shape}  x_target: {x_target.shape}")
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
 
+            print(f"CE_x {CE_x.item()}")
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
             if self.zx_dim != 0:
                 KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
@@ -326,14 +337,14 @@ class DIVA(nn.Module):
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
 
-
+            print(f"zd_p_minus_zd_q: {zd_p_minus_zd_q.item()}   KL_zx: {KL_zx.item()}")
             # Create labels and repeats of zy_q and qzy
-            y_onehot = torch.eye(10)
-            y_onehot = y_onehot.repeat(1, 100)
-            y_onehot = y_onehot.view(1000, 10).cuda()
+            y_onehot = torch.eye(10)                                         # TODO: what is 10?
+            y_onehot = y_onehot.repeat(1, 100)                               # TODO: what is 100?
+            y_onehot = y_onehot.view(1000, 10).cuda()                        # TODO: what is 1000,10?
 
-            zy_q = zy_q.repeat(10, 1)
-            zy_q_loc, zy_q_scale = zy_q_loc.repeat(10, 1), zy_q_scale.repeat(10, 1)
+            zy_q = zy_q.repeat(10, 1)                                        # TODO: what is 10?
+            zy_q_loc, zy_q_scale = zy_q_loc.repeat(10, 1), zy_q_scale.repeat(10, 1)# TODO: what is 10?
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
 
             # Do forward pass for everything involving y
@@ -350,11 +361,12 @@ class DIVA(nn.Module):
             qy = dist.OneHotCategorical(alpha_y)
             prob_qy = torch.exp(qy.log_prob(y_onehot))
 
+
             zy_p_minus_zy_q = torch.sum(pzy.log_prob(zy_q) - qzy.log_prob(zy_q), dim=-1)
 
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
-            prior_y = torch.tensor(1/10).cuda()
+            prior_y = torch.tensor(1/10).cuda()                               # TODO: what is 10?
             prior_y_minus_qy = torch.log(prior_y) - qy.log_prob(y_onehot)
             marginal_prior_y_minus_qy = torch.sum(prob_qy * prior_y_minus_qy)
 
@@ -368,8 +380,8 @@ class DIVA(nn.Module):
         else: # supervised
             x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y)
 
-            x_recon = x_recon.view(-1, 256)
-            x_target = (x.view(-1) * 255).long()
+            x_recon = x_recon.view(-1, 256)                          # TODO: what is 256?
+            x_target = (x.view(-1) * 255).long()                     # TODO: what is 255?
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
 
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
