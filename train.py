@@ -53,6 +53,8 @@ def train_model(config, model: DIVA,
 
     optimizer = optim.Adam(model.parameters(), lr=config['diva']['lr'])
 
+    d_eye = torch.eye(domain_num)
+    y_eye = torch.eye(class_num)
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
         print('\r[Step {:4}]'.format(step), end='')
@@ -60,17 +62,16 @@ def train_model(config, model: DIVA,
         summarize = step % config['summary_step'] == 0
         summarize_samples = summarize and config['summarize_samples']
 
-        y_eye = torch.eye(class_num)
-        y = y_eye[y]
-
         # Convert to onehot
-        d_eye = torch.eye(domain_num)
+        if y is not None:
+            y = y_eye[y].to(device)
         d = d_eye[d]
 
         # learn the model
-        x, y, d = x.to(device), y.to(device), d.to(device)
+        x, d = x.to(device), d.to(device)
 
         if summarize_samples and (step == 1): # TODO: need attention
+            print("save reconstructions")
             save_reconstructions(model, d, x, y, writer, t)
 
         optimizer.zero_grad()
