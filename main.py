@@ -75,7 +75,7 @@ def main():
     # test_dataset(data_scheduler)
     # return
     writer = SummaryWriter(config['log_dir'])
-    model = MODEL[config['model_name']](config['diva'], writer)
+    model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer)
     model.to(config['device'])
     train_model(config, model, data_scheduler, writer)
 
