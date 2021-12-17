@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 import os
 import yaml
 import torch
+import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
 from models.model_diva import DIVA
@@ -53,14 +54,17 @@ def main():
         here[keys[-1]] = yaml.load(value, Loader=yaml.FullLoader)
 
     # Set log directory
-    current_time=datetime.datetime.now().strftime("_%H_%M_%S")
-    config['log_dir'] = args.log_dir+current_time
+    if config['add_time_to_log']:
+        current_time = datetime.datetime.now().strftime("_%H_%M_%S")
+        config['log_dir'] = args.log_dir + current_time
+    else:
+        config['log_dir'] = args.log_dir
+
     if os.path.exists(args.log_dir):
         print('WARNING: %s already exists' % args.log_dir)
         if not config['testing_mode']:
             input('Press enter to continue')
         shutil.rmtree(config['log_dir'])
-
 
     # Save config
     os.makedirs(config['log_dir'], mode=0o755, exist_ok=True)
@@ -86,11 +90,15 @@ def test_dataset(scheduler):
         step += 1
         if prev_t != t:
             prev_t = t
+            plt.imshow(x[0].permute(1, 2, 0),cmap='gray')
             if y is None:
-                print("X", x.shape, "Y is None", "d", d, "step", step, "task id", t)
+                print("X", x.shape, "Y is None", "d", d.shape, "step", step, "task id", t)
+                plt.title(f" y = None   d={d[0]}")
             else:
-                print("X", x.shape, "Y", y.shape, "d", d, "step", step, "task id", t)
+                print("X", x.shape, "Y", y.shape, "d", d.shape, "step", step, "task id", t)
+                plt.title(f" y = {y[0]}   d={d[0]}")
 
+            plt.show()
 
 if __name__ == '__main__':
     main()
