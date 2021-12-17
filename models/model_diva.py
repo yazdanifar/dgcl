@@ -36,11 +36,8 @@ class px(nn.Module):
         h = h.view(-1, 64, 4, 4)
         h = self.up1(h)
         h = self.de1(h)
-        # print(f"h1 shape:{h.shape}")
         h = self.up2(h)
-        # print(f"h2 shape:{h.shape}")
         h = self.de2(h)
-        # print(f"h3 shape:{h.shape}")
         loc_img = self.de3(h)
 
         return loc_img
@@ -219,6 +216,7 @@ class DIVA(nn.Module):
         self.class_num = args['y_dim']
         self.repeat = 100
         self.repeatB = (self.class_num * self.repeat) // training_batch_size  # batch * this = class * repeat)
+        assert self.repeatB*training_batch_size == self.class_num*self.repeat, "repeat and batch size and class num aren't sync"
 
         self.writer = writer
 
@@ -294,34 +292,24 @@ class DIVA(nn.Module):
         if y is None:  # unsupervised
             # Do standard forward pass for everything not involving y
             zd_q_loc, zd_q_scale = self.qzd(x)
-            # print()
-            # print(f"x: {x.shape}")
-            # print(f"zd: {zd_q_loc.shape} {zd_q_scale.shape}")
+
             if self.zx_dim != 0:
                 zx_q_loc, zx_q_scale = self.qzx(x)
             zy_q_loc, zy_q_scale = self.qzy(x)
 
-            # print(f"zx: {zx_q_loc.shape} {zx_q_scale.shape}")
-            # print(f"zy: {zy_q_loc.shape} {zy_q_scale.shape}")
-
             qzd = dist.Normal(zd_q_loc, zd_q_scale)
             zd_q = qzd.rsample()
-            # print(f"new zd_q: {zd_q.shape} ")
             if self.zx_dim != 0:
                 qzx = dist.Normal(zx_q_loc, zx_q_scale)
                 zx_q = qzx.rsample()
             else:
                 zx_q = None
-            # print(f"new zx_q: {zx_q.shape} ")
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
             zy_q = qzy.rsample()
-            # print(f"new zy_q: {zy_q.shape}")
             zd_p_loc, zd_p_scale = self.pzd(d)
-            # print(f"pzd: {zd_p_loc.shape} {zd_p_scale.shape}")
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
                                        torch.ones(zd_p_loc.size()[0], self.zx_dim).cuda()
-                # print(f"pzx: {zx_p_loc.shape} {zx_p_scale.shape}")
 
             pzd = dist.Normal(zd_p_loc, zd_p_scale)
 
@@ -331,76 +319,55 @@ class DIVA(nn.Module):
                 pzx = None
 
             d_hat = self.qd(zd_q)
-            # print(f"d_hat: {d_hat.shape} ex0: {d_hat[0]} ex1: {d_hat[1]}")
             x_recon = self.px(zd_q, zx_q, zy_q)
-            # print(f"x_recon: {x_recon.shape}")
-            x_recon = x_recon.view(-1, 256)  # TODO: what is 256?(image generation batch)
-            # print(f"x_recon: {x_recon.shape}")
+            x_recon = x_recon.view(-1, 256)  # what is 256?(image generation batch)
             x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
-            # print(f"x_recon: {x_recon.shape}  x_target: {x_target.shape}")
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
-
-            # print(f"CE_x {CE_x.item()}")
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
-            # print(f"first term {pzd.log_prob(zd_q).shape}, second term {qzd.log_prob(zd_q).shape}")
+
             if self.zx_dim != 0:
                 KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
             else:
                 KL_zx = 0
 
             _, d_target = d.max(dim=1)
-            # print(f"d_target {d_target.shape}")
-
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
 
-            # print(f"zd_p_minus_zd_q: {zd_p_minus_zd_q.item()}   KL_zx: {KL_zx.item()}")
             # Create labels and repeats of zy_q and qzy
-            y_onehot = torch.eye(self.class_num)  # TODO: what is 10?(class num)
-            y_onehot = y_onehot.repeat(1, self.repeat)  # TODO: what is 100?(repeat)
+            y_onehot = torch.eye(self.class_num)  # what is 10?(class num)
+            y_onehot = y_onehot.repeat(1, self.repeat)  # what is 100?(repeat)
             y_onehot = y_onehot.view(self.class_num * self.repeat,
-                                     self.class_num).cuda()  # TODO: what is 1000,10?(class*repeat, class)
-            # print(f"y onehot: {y_onehot.shape}")
-            # print(y_onehot[0])
-            # print(y_onehot[99])
-            # print(y_onehot[100])
-            # print(y_onehot[999])
-            zy_q = zy_q.repeat(self.repeatB, 1)  # TODO: what is 10?(batch * this = class * repeat)(B)
-            # print(f"zy_q {zy_q.shape}")
+                                     self.class_num).cuda()  # what is 1000,10?(class*repeat, class)
+
+            zy_q = zy_q.repeat(self.repeatB, 1)  # what is 10?(batch * this = class * repeat)(B)
+
             zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.repeatB, 1), zy_q_scale.repeat(self.repeatB,
-                                                                                       1)  # TODO: what is 10?(B)
-            # print(f"zy_q_loc {zy_q_loc.shape} zy_q_scale {zy_q_scale.shape}")
+                                                                                       1)  # what is 10?(B)
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
 
             # Do forward pass for everything involving y
             zy_p_loc, zy_p_scale = self.pzy(
                 y_onehot)  # TODO: why you should first repeat 100 times then forward pass it not in reverse?!
 
-            # print(f"zy_p_loc {zy_p_loc.shape}  zy_p_scale {zy_p_scale.shape}")
             # Reparameterization trick
             pzy = dist.Normal(zy_p_loc, zy_p_scale)
 
             # Auxiliary losses
             y_hat = self.qy(zy_q)
 
-            # print(f"y_hat: {y_hat.shape}")
             # Marginals
             alpha_y = F.softmax(y_hat, dim=-1)
-            # print(f"alpha_y: {alpha_y.shape}")
             qy = dist.OneHotCategorical(alpha_y)
             prob_qy = torch.exp(qy.log_prob(y_onehot))
-            # print(f"prob_qy: {prob_qy.shape}")
 
             zy_p_minus_zy_q = torch.sum(pzy.log_prob(zy_q) - qzy.log_prob(zy_q), dim=-1)
 
-            # print(f"zy_p_minus_zy_q {zy_p_minus_zy_q.shape}")
+
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
-            # print(f"marginal :{marginal_zy_p_minus_zy_q.item()}")
-            prior_y = torch.tensor(1 / self.class_num).cuda()  # TODO: what is 10?(class num) need change!
+
+            prior_y = torch.tensor(1 / self.class_num).cuda()  # what is 10?(class num) need change!
             prior_y_minus_qy = torch.log(prior_y) - qy.log_prob(y_onehot)
-            # print(f"prior_y_minus_qy:{prior_y_minus_qy.shape} :: {prior_y_minus_qy[0]} :: {prior_y_minus_qy[1]}")
             marginal_prior_y_minus_qy = torch.sum(prob_qy * prior_y_minus_qy)
-            # print(f"marginal_propir: {marginal_prior_y_minus_qy.item()}")
-            # print(f"loss:{CE_x - self.beta_d * zd_p_minus_zd_q - self.beta_x * KL_zx - self.beta_y * marginal_zy_p_minus_zy_q - marginal_prior_y_minus_qy + self.aux_loss_multiplier_d * CE_d} i")
             return CE_x \
                    - self.beta_d * zd_p_minus_zd_q \
                    - self.beta_x * KL_zx \
@@ -411,7 +378,7 @@ class DIVA(nn.Module):
         else:  # supervised
             x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y)
 
-            x_recon = x_recon.view(-1, 256)  # TODO: what is 256? (image generation batch)
+            x_recon = x_recon.view(-1, 256)  # what is 256? (image generation batch)
             x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
 
