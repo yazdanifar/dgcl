@@ -55,9 +55,17 @@ def train_model(config, model: DIVA,
 
     d_eye = torch.eye(domain_num)
     y_eye = torch.eye(class_num)
+    prev_t = None
+
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
         print('\r[Step {:4}]'.format(step), end='')
+
+        # Evaluate the model
+        if step % config['eval_step'] == 0 or prev_t is None or prev_t != t:
+            scheduler.eval(model, model.classifier, writer, step, 'diva')
+
+        prev_t = t
 
         summarize = step % config['summary_step'] == 0
         summarize_samples = summarize and config['summarize_samples']
@@ -70,7 +78,7 @@ def train_model(config, model: DIVA,
         # learn the model
         x, d = x.to(device), d.to(device)
 
-        if summarize_samples and (step == 1): # TODO: need attention
+        if summarize_samples and (step == 1):  # TODO: need attention
             print("save reconstructions")
             save_reconstructions(model, d, x, y, writer, t)
 
@@ -81,11 +89,6 @@ def train_model(config, model: DIVA,
 
         train_loss += loss
         epoch_class_y_loss += class_y_loss
-
-        # Evaluate the model
-
-        if step % config['eval_step'] == 0:
-            scheduler.eval(model, model.classifier, writer, step, 'diva')
 
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)
