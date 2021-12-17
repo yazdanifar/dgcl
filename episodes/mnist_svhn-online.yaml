@@ -1,34 +1,58 @@
 train:
   - task: 'supervised'
+    domain: 0
+    rotate: 0
     subsets: [['mnist', 0], ['mnist', 1],
               ['mnist', 2], ['mnist', 3],
               ['mnist', 4], ['mnist', 5],
               ['mnist', 6], ['mnist', 7],
               ['mnist', 8], ['mnist', 9]]
 
-  - task: 'supervised'
+  - task: 'unsupervised'
+    domain: 1
+    rotate: 15
     subsets: [['mnist', 0], ['mnist', 1],
-              ['mnist', 2], ['mnist', 3]]
+              ['mnist', 2], ['mnist', 3],
+              ['mnist', 4], ['mnist', 5],
+              ['mnist', 6], ['mnist', 7],
+              ['mnist', 8], ['mnist', 9]]
 
-  - task: 'supervised'
-    subsets: [['mnist', 0], ['mnist', 1],
-              ['usps', 2], ['usps', 3]]
 
   - task: 'unsupervised'
-    subsets: [['usps', 0], ['usps', 1],
-              ['usps', 2], ['usps', 3]]
+    domain: 2
+    rotate: 30
+    subsets: [['mnist', 0], ['mnist', 1],
+              ['mnist', 2], ['mnist', 3],
+              ['mnist', 4], ['mnist', 5],
+              ['mnist', 6], ['mnist', 7],
+              ['mnist', 8], ['mnist', 9]]
 
-  - task: 'supervised'
-    subsets: [['svhn', 0], ['svhn', 1],
-              ['svhn', 2], ['svhn', 3],
-              ['svhn', 4], ['svhn', 5],
-              ['svhn', 6], ['svhn', 7],
-              ['svhn', 8], ['svhn', 9]]
+  - task: 'unsupervised'
+    domain: 3
+    rotate: 45
+    subsets: [['mnist', 0], ['mnist', 1],
+              ['mnist', 2], ['mnist', 3],
+              ['mnist', 4], ['mnist', 5],
+              ['mnist', 6], ['mnist', 7],
+              ['mnist', 8], ['mnist', 9]]
+
+  - task: 'unsupervised'
+    domain: 4
+    rotate: 60
+    subsets: [['mnist', 0], ['mnist', 1],
+              ['mnist', 2], ['mnist', 3],
+              ['mnist', 4], ['mnist', 5],
+              ['mnist', 6], ['mnist', 7],
+              ['mnist', 8], ['mnist', 9]]
+
 test:
   include-training-task: True
   tasks:
-    - subsets: [ [ 'usps', 0 ], [ 'usps', 1 ],
-               [ 'usps', 2 ], [ 'usps', 3 ],
-               [ 'usps', 4 ], [ 'usps', 5 ],
-               [ 'usps', 6 ], [ 'usps', 7 ],
-               [ 'usps', 8 ], [ 'usps', 9 ] ]
+    - domain: 5
+      rotate: 75
+      subsets: [['mnist', 0], ['mnist', 1],
+                ['mnist', 2], ['mnist', 3],
+                ['mnist', 4], ['mnist', 5],
+                ['mnist', 6], ['mnist', 7],
+                ['mnist', 8], ['mnist', 9]]
+

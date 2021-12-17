@@ -3,9 +3,9 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 16
+batch_size: 100
 num_workers: 6
-eval_batch_size: 16
+eval_batch_size: 100
 eval_num_workers: 6
 
 label_offset:
@@ -31,6 +31,7 @@ recon_loss: 'gaussian'
 # Summary #
 ###########
 
+add_time_to_log: False
 summary_step: 250
 eval_step: 250
 summarize_samples: False
@@ -55,7 +56,7 @@ diva:
   list_test_domains: '75'
 
   # Model
-  d_dim: 3
+  d_dim: 6
   x_dim: 784
   y_dim: 10
   zd_dim: 64
