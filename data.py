@@ -5,6 +5,7 @@ from functools import reduce
 import os
 import math
 import torch
+import random
 
 from torch.utils.data import (
     Dataset,
@@ -45,19 +46,19 @@ class DataScheduler(Iterator):
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
             for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name = subset
+                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
 
                 com_dataset_name = dataset_name
-                if 'rotate' in stage:
-                    com_dataset_name += str(stage['rotate'])
+                if 'rotate' is not None:
+                    com_dataset_name += str(rotation)
 
-                if stage['domain'] not in self.domain_nums:
-                    self.domain_nums.append(stage['domain'])
+                if domain not in self.domain_nums:
+                    self.domain_nums.append(domain)
                 if com_dataset_name in self.datasets:
                     stage_total += len(
                         self.datasets[com_dataset_name].subsets[subset_name])
                     continue
-                self.datasets[com_dataset_name] = DATASET[dataset_name](config, stage)
+                self.datasets[com_dataset_name] = DATASET[dataset_name](config, subset)
                 stage_total += len(
                     self.datasets[com_dataset_name].subsets[subset_name])
 
@@ -83,21 +84,23 @@ class DataScheduler(Iterator):
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name = subset
+                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
 
                 com_dataset_name = dataset_name
-                if 'rotate' in stage:
-                    com_dataset_name += str(stage['rotate'])
+                if rotation is not None:
+                    com_dataset_name += str(rotation)
 
-                if stage['domain'] not in self.domain_nums:
-                    self.domain_nums.append(stage['domain'])
+                if domain not in self.domain_nums:
+                    self.domain_nums.append(domain)
                 if com_dataset_name in self.eval_datasets:
                     continue
+
                 self.eval_datasets[com_dataset_name] = DATASET[dataset_name](
-                    config, stage, train=False
+                    config, subset, train=False
                 )
 
-        self.iterator = None
+        self.sup_iterator = None
+        self.unsup_iterator = None
         self.task = None
 
         # check the domain dimension
@@ -108,11 +111,38 @@ class DataScheduler(Iterator):
         if max(self.domain_nums) + 1 != self.domain_num:
             warnings.warn(domain_dim_problem_message)
 
+    @staticmethod
+    def get_subset_detail(subset):
+        try:
+            dataset_name, subset_name, domain, supervised = subset
+            return dataset_name, subset_name, domain, supervised, None
+        except:
+            dataset_name, subset_name, domain, supervised, rotation = subset
+            return dataset_name, subset_name, domain, supervised, rotation
+
+    def get_data(self):
+        if self.sup_iterator is None:
+            if self.unsup_iterator is None:
+                raise StopIteration
+            else:
+                data = next(self.unsup_iterator)
+                unsup = True
+
+        elif self.unsup_iterator is None:
+            data = next(self.sup_iterator)
+            unsup = False
+        elif random.random() < self.unsup_portion:
+            data = next(self.unsup_iterator)
+            unsup = True
+        else:
+            data = next(self.sup_iterator)
+            unsup = False
+        return data, unsup
+
     def __next__(self):
         try:
-            if self.iterator is None:
-                raise StopIteration
-            data = next(self.iterator)
+            data, unsup = self.get_data()
+
         except StopIteration:
             # Progress to next stage
             self.stage += 1
@@ -121,61 +151,115 @@ class DataScheduler(Iterator):
                 raise StopIteration
 
             stage = self.schedule['train'][self.stage]
-            self.task = stage['task']
             collate_fn = list(self.datasets.values())[0].collate_fn
-            subsets = []
-            for dataset_name, subset_name in stage['subsets']:
+            sup_subsets = []
+            unsup_subsets = []
+            for j, subset in enumerate(stage['subsets']):
+                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
 
                 com_dataset_name = dataset_name
-                if 'rotate' in stage:
-                    com_dataset_name += str(stage['rotate'])
+                if rotation is not None:
+                    com_dataset_name += str(rotation)
 
-                subsets.append(
-                    self.datasets[com_dataset_name].subsets[subset_name])
-            dataset = ConcatDataset(subsets)
+                if supervised == 's':
+                    sup_subsets.append(
+                        self.datasets[com_dataset_name].subsets[subset_name])
+                elif supervised == 'u':
+                    unsup_subsets.append(
+                        self.datasets[com_dataset_name].subsets[subset_name])
+                else:
+                    print("supervised should be either s or u")
+
+            sup_dataset = None
+            unsup_dataset = None
+            if len(sup_subsets) > 0:
+                sup_dataset = ConcatDataset(sup_subsets)
+                # print('sup dataset len', len(sup_dataset))
+            if len(unsup_subsets) > 0:
+                unsup_dataset = ConcatDataset(unsup_subsets)
+                # print('unsup dataset len', len(unsup_dataset))
 
             # Determine sampler
             if 'samples' in stage:
-                sampler = RandomSampler(
-                    dataset,
-                    replacement=True,
-                    num_samples=stage['samples']
-                )
+                if sup_dataset is not None:
+                    sup_sampler = RandomSampler(
+                        sup_dataset,
+                        replacement=True,
+                        num_samples=stage['samples']
+                    )
+                if unsup_dataset is not None:
+                    unsup_sampler = RandomSampler(
+                        unsup_dataset,
+                        replacement=True,
+                        num_samples=stage['samples']
+                    )
             elif 'steps' in stage:
-                sampler = RandomSampler(
-                    dataset,
-                    replacement=True,
-                    num_samples=stage['steps'] * self.config['batch_size']
-                )
+                if sup_dataset is not None:
+                    sup_sampler = RandomSampler(
+                        sup_dataset,
+                        replacement=True,
+                        num_samples=stage['steps'] * self.config['batch_size']
+                    )
+                if unsup_dataset is not None:
+                    unsup_sampler = RandomSampler(
+                        unsup_dataset,
+                        replacement=True,
+                        num_samples=stage['steps'] * self.config['batch_size']
+                    )
             elif 'epochs' in stage:
-                sampler = RandomSampler(
-                    dataset,
-                    replacement=True,
-                    num_samples=(int(stage['epochs'] * len(dataset))
-                                 + len(dataset) % self.config['batch_size'])
-                )
+                if sup_dataset is not None:
+                    sup_sampler = RandomSampler(
+                        sup_dataset,
+                        replacement=True,
+                        num_samples=(int(stage['epochs'] * len(sup_dataset))
+                                     + len(sup_dataset) % self.config['batch_size'])
+                    )
+                if unsup_dataset is not None:
+                    unsup_sampler = RandomSampler(
+                        unsup_dataset,
+                        replacement=True,
+                        num_samples=(int(stage['epochs'] * len(unsup_dataset))
+                                     + len(unsup_dataset) % self.config['batch_size'])
+                    )
             else:
-                sampler = RandomSampler(dataset)
+                if sup_dataset is not None:
+                    sup_sampler = RandomSampler(sup_dataset)
+                if unsup_dataset is not None:
+                    unsup_sampler = RandomSampler(unsup_dataset)
+            if sup_dataset is not None:
+                self.sup_iterator = iter(DataLoader(
+                    sup_dataset,
+                    batch_size=self.config['batch_size'],
+                    num_workers=self.config['num_workers'],
+                    collate_fn=collate_fn,
+                    sampler=sup_sampler,
+                    drop_last=True,
+                ))
+            if unsup_dataset is not None:
+                self.unsup_iterator = iter(DataLoader(
+                    unsup_dataset,
+                    batch_size=self.config['batch_size'],
+                    num_workers=self.config['num_workers'],
+                    collate_fn=collate_fn,
+                    sampler=unsup_sampler,
+                    drop_last=True,
+                ))
 
-            self.iterator = iter(DataLoader(
-                dataset,
-                batch_size=self.config['batch_size'],
-                num_workers=self.config['num_workers'],
-                collate_fn=collate_fn,
-                sampler=sampler,
-                drop_last=True,
-            ))
+            if sup_dataset is None:
+                self.unsup_portion = 1
+            elif unsup_dataset is None:
+                self.unsup_portion = 0
+            else:
+                self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
 
-            data = next(self.iterator)
+            # print("in this stage unsup portion to all baches is:", self.unsup_portion)
+            data, unsup = self.get_data()
 
         # Get next data
-        if self.task == "supervised":
+        if not unsup:
             return data[0], data[1], data[2], self.stage
-        elif self.task == "unsupervised":
-            return data[0], None, data[2], self.stage
         else:
-            print("task type is wrong it should be supervised or unsupervised but it is " + str(self.task))
-            raise StopIteration
+            return data[0], None, data[2], self.stage
 
     def __len__(self):
         return self.total_step
@@ -238,16 +322,18 @@ class DataScheduler(Iterator):
             )
             return accuracy_d, accuracy_y
 
-    def get_dataloader(self, task_subsets, stage):
+    def get_dataloader(self, stage):
         collate_fn = list(self.datasets.values())[0].collate_fn
         subsets = []
         description = ""
         previous_dataset_name = None
 
-        for dataset_name, subset_name in task_subsets:
+        for j, subset in enumerate(stage['subsets']):
+            dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+
             com_dataset_name = dataset_name
-            if 'rotate' in stage:
-                com_dataset_name += str(stage['rotate'])
+            if rotation is not None:
+                com_dataset_name += str(rotation)
 
             if previous_dataset_name is None or previous_dataset_name != com_dataset_name:
                 description += com_dataset_name
@@ -272,14 +358,13 @@ class DataScheduler(Iterator):
         return eval_data_loader, description
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
-
         writer.add_scalar(
             'stage/%s' % (eval_title),
             self.stage, step
         )
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
-            eval_data_loader, description = self.get_dataloader(stage['subsets'], stage)
+            eval_data_loader, description = self.get_dataloader(stage)
             accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description,
                                                     eval_data_loader,
                                                     self.config['batch_size'])
@@ -293,11 +378,12 @@ class ClassificationDataset(Dataset, ABC):
     num_classes = NotImplemented
     targets = NotImplemented
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, subset, train=True):
         self.config = config
         self.subsets = {}
         self.train = train
-        self.domain_id = stage['domain']
+        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        self.domain_id = domain
 
     def collate_fn(self, batch):
         return default_collate(batch)
@@ -321,7 +407,7 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
     name = 'mnist'
     num_classes = 10
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, subset, train=True):
 
         # Compose transformation
         transform_list = [
@@ -336,16 +422,18 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
             transform_list.append(
                 lambda x: x.expand(config['x_c'], -1, -1)
             )
-        transform_list.append(
-            transforms.RandomRotation(degrees=(stage['rotate'], stage['rotate']))
-        )
+        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        if rotation is not None:
+            transform_list.append(
+                transforms.RandomRotation(degrees=(rotation, rotation))
+            )
         transform = transforms.Compose(transform_list)
 
         # Initialize super classes
         torchvision.datasets.MNIST.__init__(
             self, root=os.path.join(config['data_root'], 'mnist'),
             train=train, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, stage, train)
+        ClassificationDataset.__init__(self, config, subset, train)
 
         # Create subset for each class
         for y in range(self.num_classes):
@@ -353,6 +441,7 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
                 self,
                 list((self.targets == y).nonzero().squeeze(1).numpy())
             )
+            print(self.subsets[y])
         self.offset_label()
 
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:

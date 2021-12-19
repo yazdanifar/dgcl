@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 100
-num_workers: 6
+num_workers: 4
 eval_batch_size: 100
-eval_num_workers: 6
+eval_num_workers: 2
 
 label_offset:
   mnist: 0
@@ -31,7 +31,7 @@ recon_loss: 'gaussian'
 # Summary #
 ###########
 
-add_time_to_log: False
+add_time_to_log: True
 summary_step: 250
 eval_step: 250
 summarize_samples: False

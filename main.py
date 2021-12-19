@@ -22,7 +22,7 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/mnist_svhn-online.yaml'
+    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml' #'episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -60,8 +60,8 @@ def main():
     else:
         config['log_dir'] = args.log_dir
 
-    if os.path.exists(args.log_dir):
-        print('WARNING: %s already exists' % args.log_dir)
+    if os.path.exists(config['log_dir']):
+        print('WARNING: %s already exists' % config['log_dir'])
         if not config['testing_mode']:
             input('Press enter to continue')
         shutil.rmtree(config['log_dir'])
@@ -88,7 +88,7 @@ def test_dataset(scheduler):
     prev_t = -1
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
-        if prev_t != t:
+        if step<20:#prev_t != t:
             prev_t = t
             plt.imshow(x[0].permute(1, 2, 0),cmap='gray')
             if y is None:
