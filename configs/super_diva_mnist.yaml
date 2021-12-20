@@ -6,7 +6,7 @@ data_root: 'data_files'
 batch_size: 100
 num_workers: 4
 eval_batch_size: 100
-eval_num_workers: 2
+eval_num_workers: 4
 
 label_offset:
   mnist: 0
@@ -49,11 +49,6 @@ diva:
   epochs: 500
   lr: 0.001
   num-supervised: 1000
-
-
-  # Choose domains
-  list_train_domains: ['0','15', '30','45','60','75']
-  list_test_domains: '75'
 
   # Model
   d_dim: 6

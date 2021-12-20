@@ -36,31 +36,23 @@ class DataScheduler(Iterator):
         self.class_num = config['diva']['y_dim']
         self.domain_num = config['diva']['d_dim']
         self.schedule = config['data_schedule']
-        self.datasets = OrderedDict()
-        self.eval_datasets = OrderedDict()
+
+        self.datasets = [OrderedDict(), OrderedDict()]
+
         self.total_step = 0
         self.stage = -1
 
         self.domain_nums = []
+
         # Prepare training datasets
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
             for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+                dataset = self.get_subset_instance(subset)  # type:ProxyDataset
+                if dataset.domain not in self.domain_nums:
+                    self.domain_nums.append(dataset.domain)
 
-                com_dataset_name = dataset_name
-                if 'rotate' is not None:
-                    com_dataset_name += str(rotation)
-
-                if domain not in self.domain_nums:
-                    self.domain_nums.append(domain)
-                if com_dataset_name in self.datasets:
-                    stage_total += len(
-                        self.datasets[com_dataset_name].subsets[subset_name])
-                    continue
-                self.datasets[com_dataset_name] = DATASET[dataset_name](config, subset)
-                stage_total += len(
-                    self.datasets[com_dataset_name].subsets[subset_name])
+                stage_total += len(dataset.inner_dataset)
 
             if 'steps' in stage:
                 self.total_step += stage['steps']
@@ -84,20 +76,9 @@ class DataScheduler(Iterator):
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
-
-                com_dataset_name = dataset_name
-                if rotation is not None:
-                    com_dataset_name += str(rotation)
-
-                if domain not in self.domain_nums:
-                    self.domain_nums.append(domain)
-                if com_dataset_name in self.eval_datasets:
-                    continue
-
-                self.eval_datasets[com_dataset_name] = DATASET[dataset_name](
-                    config, subset, train=False
-                )
+                dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
+                if dataset.domain not in self.domain_nums:
+                    self.domain_nums.append(dataset.domain)
 
         self.sup_iterator = None
         self.unsup_iterator = None
@@ -110,6 +91,16 @@ class DataScheduler(Iterator):
 
         if max(self.domain_nums) + 1 != self.domain_num:
             warnings.warn(domain_dim_problem_message)
+
+    def get_subset_instance(self, subset, train=True):
+        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        com_dataset_name = dataset_name + "|" + str(subset_name) + "|" + str(domain) + "|" + supervised + "|" + str(
+            rotation)
+        if com_dataset_name not in self.datasets[train]:
+            new_dataset = ProxyDataset(self.config, subset, train)
+            self.datasets[train][com_dataset_name] = new_dataset
+
+        return self.datasets[train][com_dataset_name]
 
     @staticmethod
     def get_subset_detail(subset):
@@ -151,22 +142,16 @@ class DataScheduler(Iterator):
                 raise StopIteration
 
             stage = self.schedule['train'][self.stage]
-            collate_fn = list(self.datasets.values())[0].collate_fn
+            collate_fn = list(self.datasets[True].values())[0].collate_fn  # train = True
             sup_subsets = []
             unsup_subsets = []
             for j, subset in enumerate(stage['subsets']):
-                dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+                dataset = self.get_subset_instance(subset)  # type:ProxyDataset
 
-                com_dataset_name = dataset_name
-                if rotation is not None:
-                    com_dataset_name += str(rotation)
-
-                if supervised == 's':
-                    sup_subsets.append(
-                        self.datasets[com_dataset_name].subsets[subset_name])
-                elif supervised == 'u':
-                    unsup_subsets.append(
-                        self.datasets[com_dataset_name].subsets[subset_name])
+                if dataset.supervised == 's':
+                    sup_subsets.append(dataset)
+                elif dataset.supervised == 'u':
+                    unsup_subsets.append(dataset)
                 else:
                     print("supervised should be either s or u")
 
@@ -323,32 +308,26 @@ class DataScheduler(Iterator):
             return accuracy_d, accuracy_y
 
     def get_dataloader(self, stage):
-        collate_fn = list(self.datasets.values())[0].collate_fn
+        collate_fn = list(self.datasets[False].values())[0].collate_fn  # Train = False
         subsets = []
         description = ""
         previous_dataset_name = None
 
         for j, subset in enumerate(stage['subsets']):
-            dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+            dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
+            if previous_dataset_name is None or previous_dataset_name != dataset.complete_name:
+                description += dataset.complete_name
+            previous_dataset_name = dataset.complete_name
+            description += str(dataset.subset_name)
 
-            com_dataset_name = dataset_name
-            if rotation is not None:
-                com_dataset_name += str(rotation)
-
-            if previous_dataset_name is None or previous_dataset_name != com_dataset_name:
-                description += com_dataset_name
-            previous_dataset_name = com_dataset_name
-            description += str(subset_name)
-
-            subsets.append(
-                self.eval_datasets[com_dataset_name].subsets[subset_name])
-        dataset = ConcatDataset(subsets)
+            subsets.append(dataset)
+        big_dataset = ConcatDataset(subsets)
 
         # Determine sampler
-        sampler = RandomSampler(dataset)
+        sampler = RandomSampler(big_dataset)
 
         eval_data_loader = DataLoader(
-            dataset,
+            big_dataset,
             batch_size=self.config['eval_batch_size'],
             num_workers=self.config['eval_num_workers'],
             collate_fn=collate_fn,
@@ -373,17 +352,52 @@ class DataScheduler(Iterator):
 # ================
 # Generic Datasets
 # ================
+class ProxyDataset(Dataset):
+    datasets = [{}, {}]
+
+    def __init__(self, config, subset, train=True):
+        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        self.domain = domain
+        self.complete_name = dataset_name + "." + str(domain) if rotation is None else str(rotation)
+        self.supervised = supervised
+        self.subset_name=subset_name
+
+        transform_list = []
+        if rotation is not None:
+            transform_list.append(
+                transforms.RandomRotation(degrees=(rotation, rotation))
+            )
+
+        self.transform = transforms.Compose(transform_list)
+        if dataset_name not in ProxyDataset.datasets[train]:
+            inner_dataset = DATASET[dataset_name](config, train=train)
+            ProxyDataset.datasets[train][dataset_name] = inner_dataset
+            self.inner_dataset = inner_dataset.subsets[subset_name]
+        else:
+            self.inner_dataset = ProxyDataset.datasets[train][dataset_name].subsets[subset_name]
+
+    def __len__(self):
+        return len(self.inner_dataset)
+
+    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
+        img, target = self.inner_dataset.__getitem__(index)
+        if self.supervised:
+            return self.transform(img), target, self.domain
+        else:
+            return self.transform(img), None, self.domain
+
+    def collate_fn(self, batch):
+        return default_collate(batch)
+
 
 class ClassificationDataset(Dataset, ABC):
     num_classes = NotImplemented
     targets = NotImplemented
 
-    def __init__(self, config, subset, train=True):
+    def __init__(self, config, train=True):
         self.config = config
         self.subsets = {}
         self.train = train
-        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
-        self.domain_id = domain
 
     def collate_fn(self, batch):
         return default_collate(batch)
@@ -403,11 +417,12 @@ class ClassificationDataset(Dataset, ABC):
 # Concrete Datasets
 # =================
 
+
 class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
     name = 'mnist'
     num_classes = 10
 
-    def __init__(self, config, subset, train=True):
+    def __init__(self, config, train=True):
 
         # Compose transformation
         transform_list = [
@@ -422,18 +437,13 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
             transform_list.append(
                 lambda x: x.expand(config['x_c'], -1, -1)
             )
-        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
-        if rotation is not None:
-            transform_list.append(
-                transforms.RandomRotation(degrees=(rotation, rotation))
-            )
         transform = transforms.Compose(transform_list)
 
         # Initialize super classes
         torchvision.datasets.MNIST.__init__(
             self, root=os.path.join(config['data_root'], 'mnist'),
             train=train, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, subset, train)
+        ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
         for y in range(self.num_classes):
@@ -441,19 +451,14 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
                 self,
                 list((self.targets == y).nonzero().squeeze(1).numpy())
             )
-            print(self.subsets[y])
         self.offset_label()
-
-    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = super(MNIST, self).__getitem__(index)
-        return img, target, self.domain_id
 
 
 class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
     name = 'svhn'
     num_classes = 10
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, train=True):
         # Compose transformation
         transform_list = [
             transforms.Resize((config['x_h'], config['x_w'])),
@@ -467,7 +472,7 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
         torchvision.datasets.SVHN.__init__(
             self, root=os.path.join(config['data_root'], 'svhn'),
             split=split, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, stage, train)
+        ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
         self.targets = torch.Tensor(self.labels)
@@ -480,16 +485,12 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
 
         self.offset_label()
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = super(SVHN, self).__getitem__(index)
-        return img, target, self.domain_id
-
 
 class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
     name = 'cifar10'
     num_classes = 10
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, train=True):
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -508,7 +509,7 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
         torchvision.datasets.CIFAR10.__init__(
             self, root=os.path.join(config['data_root'], 'cifar10'),
             train=train, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, stage, train)
+        ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
         for y in range(self.num_classes):
@@ -520,16 +521,12 @@ class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
 
         self.offset_label()
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = super(CIFAR10, self).__getitem__(index)
-        return img, target, self.domain_id
-
 
 class USPS(torchvision.datasets.USPS, ClassificationDataset):
     name = 'usps'
     num_classes = 10
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, train=True):
         if config.get('augment_usps'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -548,7 +545,7 @@ class USPS(torchvision.datasets.USPS, ClassificationDataset):
         torchvision.datasets.USPS.__init__(
             self, root=os.path.join(config['data_root'], 'usps'),
             train=train, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, stage, train)
+        ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
         for y in range(self.num_classes):
@@ -560,16 +557,12 @@ class USPS(torchvision.datasets.USPS, ClassificationDataset):
 
         self.offset_label()
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = super(USPS, self).__getitem__(index)
-        return img, target, self.domain_id
-
 
 class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
     name = 'cifar100'
     num_classes = 100
 
-    def __init__(self, config, stage, train=True):
+    def __init__(self, config, train=True):
         if config.get('augment_cifar'):
             transform = transforms.Compose([
                 transforms.Resize((config['x_h'], config['x_w'])),
@@ -588,7 +581,7 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
         torchvision.datasets.CIFAR100.__init__(
             self, root=os.path.join(config['data_root'], 'cifar100'),
             train=train, transform=transform, download=True)
-        ClassificationDataset.__init__(self, config, stage, train)
+        ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
         for y in range(self.num_classes):
@@ -599,10 +592,6 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
             )
 
         self.offset_label()
-
-    def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = super(CIFAR100, self).__getitem__(index)
-        return img, target, self.domain_id
 
 
 DATASET = {
