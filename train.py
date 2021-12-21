@@ -90,6 +90,7 @@ def train_model(config, model: DIVA,
         train_loss += loss
         epoch_class_y_loss += class_y_loss
 
+    scheduler.eval(model, model.classifier, writer, len(scheduler), 'diva') #eval final model
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)
 
