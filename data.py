@@ -1,3 +1,4 @@
+import copy
 import warnings
 from abc import ABC, abstractmethod
 from collections import Iterator, OrderedDict
@@ -72,7 +73,8 @@ class DataScheduler(Iterator):
 
         # combine evaluation tasks
         if self.schedule['test']['include-training-task']:
-            self.schedule['test']['tasks'] = self.schedule['train'] + self.schedule['test']['tasks']
+            self.schedule['test']['tasks'] = self.schedule['train'] + DataScheduler.add_supervised_flag(
+                self.schedule['test']['tasks'])
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
@@ -110,6 +112,20 @@ class DataScheduler(Iterator):
         except:
             dataset_name, subset_name, domain, supervised, rotation = subset
             return dataset_name, subset_name, domain, supervised, rotation
+
+    @staticmethod
+    def add_supervised_flag(tasks):
+        tasks = copy.deepcopy(tasks)
+        for i, stage in enumerate(tasks):
+            for j, subset in enumerate(stage['subsets']):
+                try:
+                    dataset_name, subset_name, domain, rotation = subset
+                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u', rotation)
+                except:
+                    dataset_name, subset_name, domain = subset
+                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u')
+
+        return tasks
 
     def get_data(self):
         if self.sup_iterator is None:
