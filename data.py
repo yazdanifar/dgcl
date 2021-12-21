@@ -71,10 +71,12 @@ class DataScheduler(Iterator):
         if self.schedule['test']['tasks'] is None:
             self.schedule['test']['tasks'] = []
 
+        # add useless flags to eval dataset (supervised and portion)
+        self.schedule['test']['tasks'] = DataScheduler.add_flags(self.schedule['test']['tasks'])
+
         # combine evaluation tasks
         if self.schedule['test']['include-training-task']:
-            self.schedule['test']['tasks'] = self.schedule['train'] + DataScheduler.add_supervised_flag(
-                self.schedule['test']['tasks'])
+            self.schedule['test']['tasks'] = self.schedule['train'] + self.schedule['test']['tasks']
 
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
@@ -95,7 +97,7 @@ class DataScheduler(Iterator):
             warnings.warn(domain_dim_problem_message)
 
     def get_subset_instance(self, subset, train=True):
-        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        dataset_name, subset_name, domain, supervised, portion, rotation = DataScheduler.get_subset_detail(subset)
         com_dataset_name = dataset_name + "|" + str(subset_name) + "|" + str(domain) + "|" + supervised + "|" + str(
             rotation)
         if com_dataset_name not in self.datasets[train]:
@@ -107,24 +109,23 @@ class DataScheduler(Iterator):
     @staticmethod
     def get_subset_detail(subset):
         try:
-            dataset_name, subset_name, domain, supervised = subset
-            return dataset_name, subset_name, domain, supervised, None
+            dataset_name, subset_name, domain, supervised, portion = subset
+            return dataset_name, subset_name, domain, supervised, portion, None
         except:
-            dataset_name, subset_name, domain, supervised, rotation = subset
-            return dataset_name, subset_name, domain, supervised, rotation
+            dataset_name, subset_name, domain, supervised, portion, rotation = subset
+            return dataset_name, subset_name, domain, supervised, portion, rotation
 
     @staticmethod
-    def add_supervised_flag(tasks):
+    def add_flags(tasks):
         tasks = copy.deepcopy(tasks)
         for i, stage in enumerate(tasks):
             for j, subset in enumerate(stage['subsets']):
                 try:
                     dataset_name, subset_name, domain, rotation = subset
-                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u', rotation)
+                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u', 1, rotation)
                 except:
                     dataset_name, subset_name, domain = subset
-                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u')
-
+                    tasks[i]['subsets'][j] = (dataset_name, subset_name, domain, 'u', 1)
         return tasks
 
     def get_data(self):
@@ -138,7 +139,7 @@ class DataScheduler(Iterator):
         elif self.unsup_iterator is None:
             data = next(self.sup_iterator)
             unsup = False
-        elif random.random() < self.unsup_portion:
+        elif random.random() < self.unsup_portion:  #TODO: remove random if portion is 0.1 self.step%10==0 should be the if
             data = next(self.unsup_iterator)
             unsup = True
         else:
@@ -164,12 +165,10 @@ class DataScheduler(Iterator):
             for j, subset in enumerate(stage['subsets']):
                 dataset = self.get_subset_instance(subset)  # type:ProxyDataset
 
-                if dataset.supervised == 's':
+                if dataset.supervised:
                     sup_subsets.append(dataset)
-                elif dataset.supervised == 'u':
-                    unsup_subsets.append(dataset)
                 else:
-                    print("supervised should be either s or u")
+                    unsup_subsets.append(dataset)
 
             sup_dataset = None
             unsup_dataset = None
@@ -253,7 +252,7 @@ class DataScheduler(Iterator):
             else:
                 self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
 
-            # print("in this stage unsup portion to all baches is:", self.unsup_portion)
+            print("in this stage unsup portion to all baches is:", round(self.unsup_portion,3))
             data, unsup = self.get_data()
 
         # Get next data
@@ -372,11 +371,12 @@ class ProxyDataset(Dataset):
     datasets = [{}, {}]
 
     def __init__(self, config, subset, train=True):
-        dataset_name, subset_name, domain, supervised, rotation = DataScheduler.get_subset_detail(subset)
+        dataset_name, subset_name, domain, supervised, portion, rotation = DataScheduler.get_subset_detail(subset)
         self.domain = domain
         self.complete_name = dataset_name + str(domain) if rotation is None else str(rotation)
-        self.supervised = supervised
+        self.supervised = (supervised == 's')
         self.subset_name = subset_name
+        self.portion = portion
 
         transform_list = []
         if rotation is not None:
@@ -392,15 +392,17 @@ class ProxyDataset(Dataset):
         else:
             self.inner_dataset = ProxyDataset.datasets[train][dataset_name].subsets[subset_name]
 
+        if self.supervised:
+            self.offset = 0
+        else:
+            self.offset = int(len(self.inner_dataset) * (1 - self.portion))
+
     def __len__(self):
-        return len(self.inner_dataset)
+        return int(len(self.inner_dataset) * self.portion)
 
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
-        img, target = self.inner_dataset.__getitem__(index)
-        if self.supervised:
-            return self.transform(img), target, self.domain
-        else:
-            return self.transform(img), None, self.domain
+        img, target = self.inner_dataset.__getitem__(index + self.offset)
+        return self.transform(img), target, self.domain
 
     def collate_fn(self, batch):
         return default_collate(batch)
