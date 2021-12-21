@@ -22,7 +22,7 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml' #'episodes/mnist_svhn-online.yaml'
+    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml'#'episodes/simple_mnist_for_test.yaml' # #'episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -71,6 +71,8 @@ def main():
     config_save_path = os.path.join(config['log_dir'], 'config.yaml')
     episode_save_path = os.path.join(config['log_dir'], 'episode.yaml')
     model_save_path = os.path.join(config['log_dir'], 'model.pth')
+    model_load_path = "logs/mnist_svhn_4/model.pth"
+
 
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))
@@ -82,6 +84,9 @@ def main():
     # return
     writer = SummaryWriter(config['log_dir'])
     model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer)
+    if model_load_path is not None:
+        model.load_state_dict(torch.load(model_load_path))
+
     model.to(config['device'])
     train_model(config, model, data_scheduler, writer)
     torch.save(model.state_dict(), model_save_path)
