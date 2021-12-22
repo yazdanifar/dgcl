@@ -147,13 +147,19 @@ class DataScheduler(Iterator):
             unsup = False
         return data, unsup
 
-    def learn_task(self, stage_num):
+    def stage_classes(self, stage_num):
+        ans = []
         if 0 <= stage_num < len(self.schedule['train']):
             stage = self.schedule['train'][stage_num]
             for j, subset in enumerate(stage['subsets']):
                 dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
-                if (dataset.domain, dataset.subset_name) not in self.learned_class:
-                    self.learned_class.append((dataset.domain, dataset.subset_name))
+                if (dataset.domain, dataset.subset_name) not in ans:
+                    ans.append((dataset.domain, dataset.subset_name))
+        return ans
+
+    def learn_task(self, stage_num):
+        print(f"task {stage_num} learned!")
+        self.learned_class += self.stage_classes(stage_num)
 
     def __next__(self):
         try:
@@ -308,7 +314,7 @@ class DataScheduler(Iterator):
                     accurate_preds_d += (v.item() == self.domain_num)
 
             # calculate the accuracy between 0 and 1
-            accuracy_d = (accurate_preds_d * 1.0) / (len(predictions_d) * batch_size)
+            accuracy_d = (accurate_preds_d * 1.0) / (len(predictions_d) * self.config['eval_batch_size'])
 
             # compute the number of accurate predictions
             accurate_preds_y = 0
@@ -318,7 +324,7 @@ class DataScheduler(Iterator):
                     accurate_preds_y += (v.item() == self.class_num)
 
             # calculate the accuracy between 0 and 1
-            accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * batch_size)
+            accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * self.config['eval_batch_size'])
 
             writer.add_scalar(
                 'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
@@ -360,6 +366,7 @@ class DataScheduler(Iterator):
         return eval_data_loader, description
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
+        print("start evaluation", end=" ")
         writer.add_scalar(
             'stage/%s' % (eval_title),
             self.stage, step
@@ -371,6 +378,7 @@ class DataScheduler(Iterator):
                                                     eval_data_loader,
                                                     self.config['batch_size'])
         model.train()
+        print("end evaluation")
 
 
 # ================

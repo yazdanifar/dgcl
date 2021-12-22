@@ -2,7 +2,9 @@ import os
 import pickle
 import random
 
+import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from data import DataScheduler
@@ -66,10 +68,10 @@ def train_model(config, model: DIVA,
 
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
-        print('\r[Step {:4}]'.format(step), end='')
-
+        print('\r[Step {:4}]'.format(step), end=' ')
         # Evaluate the model
-        if step % config['eval_step'] == 0 or prev_t is None or prev_t != t:
+        if step % config['eval_step'] == 0 or (prev_t is None and config['initial_evaluation']) or (
+                prev_t != t and prev_t is not None):
             scheduler.eval(model, model.classifier, writer, step, 'diva')
 
         prev_t = t
@@ -85,21 +87,25 @@ def train_model(config, model: DIVA,
         # learn the model
         x, d = x.to(device), d.to(device)
 
-        if summarize_samples and (step == 1):  # TODO: need attention
-            print("save reconstructions")
-            save_reconstructions(model, d, x, y, writer, t)
+        if summarize_samples:
+            print("save reconstructions", end=" ")
+            save_reconstructions(model, scheduler, writer, step)
+            # save_reconstructions(model, d, x, y, writer, t)
 
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
-        if random.random() < config['replay_ratio'] and len(scheduler.learned_class) > 0:
+        optimizer.step()
+
+        r = random.random()
+        if r < config['replay_ratio'] and len(scheduler.learned_class) > 0:
             x, y, d = model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
             if y is not None:
                 y = y_eye[y].to(device)
             d = d_eye[d]
-
             x, d = x.to(device), d.to(device)
 
+            optimizer.zero_grad()
             replay_loss, class_y_loss = model.loss_function(d, x, y)
             replay_loss *= config['replay_loss_multiplier']
             replay_loss.backward()
@@ -108,11 +114,9 @@ def train_model(config, model: DIVA,
             sum_replay_loss += replay_loss
             sum_replay_loss_count += 1
 
-        optimizer.step()
-
         sum_loss += loss
         sum_loss_count += 1
-        if step % 100 == 0:
+        if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
                 writer.add_scalar(
                     'training_loss/%s_%s' % ("DIVA", "normal"),
@@ -136,32 +140,41 @@ def train_model(config, model: DIVA,
     epoch_class_y_loss /= len(scheduler)
 
 
-def save_reconstructions(model, d, x, y, writer, step):
+def show_batch(dd, xx, y, t):
+    dd, xx = dd.cpu(), xx.cpu()
+    print(f"d shape: {dd.shape} x shape:{xx.shape}")
+    for i in range(min(1, xx.shape[0])):
+        d, x = dd[i], xx[i]
+        plt.imshow(x.permute(1, 2, 0), cmap='gray')
+        if y is None:
+            print("X", x.shape, "Y is None", "d", d.shape, "task id", t)
+            plt.title(f" y = None   d={d}   task:{t}")
+        else:
+            print("X", x.shape, "Y", y.shape, "d", d.shape, "task id", t)
+            plt.title(f" y = {y[i]}   d={d}  task:{t}")
+
+        plt.show()
+
+
+def save_reconstructions(model: DIVA, scheduler, writer: SummaryWriter, step):
     # Save reconstuction
+    if len(scheduler.learned_class) > 0:
+        x, y, d = model.get_replay_batch(scheduler.learned_class, 10)
+        writer.add_images('generated_images_batch/%s' % ("DIVA"), x, step)
+
     with torch.no_grad():
-        x_recon, _, _, _, _, _, _, _, _, _, _, _ = model.forward(d, x, y)
-        recon_batch = x_recon.view(-1, 1, 28, 28, 256)
+        all_classes = []
+        for i in range(scheduler.stage + 1):
+            all_classes += scheduler.stage_classes(i)
 
-        sample = torch.zeros(100, 1, 28, 28).cuda()
-
-        for i in range(28):
-            for j in range(28):
-
-                # out[:, :, i, j]
-                probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
-
-                # Sample single pixel (each channel independently)
-                for k in range(1):
-                    # 0 ~ 255 => 0 ~ 1
-                    val, ind = torch.max(probs[:, k], dim=1)
-                    sample[:, k, i, j] = ind.squeeze().float() / 255.
-
-        n = min(x.size(0), 8)
-        comparison = torch.cat([x.view(100, 1, 28, 28)[:n],
-                                sample[:n]])
-
-        # collage = _make_collage(samples, config, grid_h, grid_w)
-        writer.add_image('samples/{}'.format(i + 1), comparison, step)  # need check
-
-        # save_image(comparison.cpu(),
-        #            'reconstruction_only_sup_' + str(epoch) + '.png', nrow=n)
+        for d in range(model.d_dim):
+            dd = []
+            yy = []
+            for y in range(model.y_dim):
+                if (d, y) in all_classes:
+                    yy.append(y)
+                    dd.append(d)
+            if len(yy) > 0:
+                y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
+                x = model.generate_supervised_image(d_n, y)
+                writer.add_images('generated_images_by_domain/%s/domain_%s' % ("DIVA", d), x, step)

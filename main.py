@@ -90,7 +90,7 @@ def main():
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
         model.to(config['device'])
-        for i in range(100):
+        for i in range(len(data_scheduler.schedule['train'])):
             try:
                 data_scheduler.learn_task(i)
             except:
