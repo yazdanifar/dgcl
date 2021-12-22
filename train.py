@@ -68,8 +68,7 @@ def train_model(config, model: DIVA,
 
         # Evaluate the model
         if step % config['eval_step'] == 0 or prev_t is None or prev_t != t:
-            if step > 5:
-                scheduler.eval(model, model.classifier, writer, step, 'diva')
+            scheduler.eval(model, model.classifier, writer, step, 'diva')
 
         prev_t = t
 
