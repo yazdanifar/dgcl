@@ -61,6 +61,8 @@ def train_model(config, model: DIVA,
 
     sum_loss = 0
     sum_loss_count = 0
+    sum_replay_loss = 0
+    sum_replay_loss_count = 0
 
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
@@ -102,18 +104,30 @@ def train_model(config, model: DIVA,
             # loss*= something
             replay_loss.backward()
             optimizer.step()
+
+            sum_replay_loss += replay_loss
+            sum_replay_loss_count += 1
+
         optimizer.step()
 
         sum_loss += loss
         sum_loss_count += 1
         if step % 100 == 0:
-            writer.add_scalar(
-                'training_loss/%s' % ("DIVA"),
-                sum_loss / sum_loss_count, step
-            )
+            if sum_loss_count != 0:
+                writer.add_scalar(
+                    'training_loss/%s_%s' % ("DIVA", "normal"),
+                    sum_loss / sum_loss_count, step
+                )
+            if sum_replay_loss_count != 0:
+                writer.add_scalar(
+                    'training_loss/%s_%s' % ("DIVA", "replay"),
+                    sum_replay_loss / sum_replay_loss_count, step
+                )
             sum_loss = 0
             sum_loss_count = 0
 
+            sum_replay_loss = 0
+            sum_replay_loss_count = 0
         train_loss += loss
         epoch_class_y_loss += class_y_loss
 
