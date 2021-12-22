@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -248,7 +249,7 @@ class DIVA(nn.Module):
 
     def get_image_by_recon(self, x):
 
-        batch_size, _, h, w = x.cpu().shape[0],x.cpu().shape[1],x.cpu().shape[2],x.cpu().shape[3]
+        batch_size, _, h, w = x.cpu().shape[0], x.cpu().shape[1], x.cpu().shape[2], x.cpu().shape[3]
         recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general (28 and 256 and 8) and k in range(1)
         sample = torch.zeros(batch_size, 1, h, w).cuda()
 
@@ -264,6 +265,19 @@ class DIVA(nn.Module):
                     sample[:, k, i, j] = ind.squeeze().float() / 255.
 
         return sample
+
+    def get_replay_batch(self, learned_class, batch_size):
+        choices = np.random.choice(np.arange(len(learned_class)), batch_size)
+        # we could replay based on some thing diffrent
+        # (if ew forgot a task we could put more sample
+        #  from that task in the batch) p!=uniform
+        y = np.zeros(batch_size)
+        d = np.zeros(batch_size)
+        for i in range(batch_size):
+            d[i], y[i] = learned_class[choices[i]]
+
+        print("y",y,"d",d)
+        return self.generate_supervised_image(d, y), y, d
 
     def generate_supervised_image(self, d, y):
         assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
@@ -408,7 +422,6 @@ class DIVA(nn.Module):
             prob_qy = torch.exp(qy.log_prob(y_onehot))
 
             zy_p_minus_zy_q = torch.sum(pzy.log_prob(zy_q) - qzy.log_prob(zy_q), dim=-1)
-
 
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 

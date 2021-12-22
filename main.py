@@ -73,7 +73,7 @@ def main():
     config_save_path = os.path.join(config['log_dir'], 'config.yaml')
     episode_save_path = os.path.join(config['log_dir'], 'episode.yaml')
     model_save_path = os.path.join(config['log_dir'], 'model.pth')
-    model_load_path = None#"logs/mnist_svhn_4/model.pth"
+    model_load_path = "logs/mnist_svhn_6/model.pth"
 
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))
@@ -87,27 +87,36 @@ def main():
     model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
+        model.to(config['device'])
+        for i in range(100):
+            try:
+                data_scheduler.learn_task(i)
+            except:
+                break
+    else:
+        model.to(config['device'])
+        train_model(config, model, data_scheduler, writer)
+        torch.save(model.state_dict(), model_save_path)
 
-    model.to(config['device'])
-    # test_generator(model)
-    train_model(config, model, data_scheduler, writer)
-    torch.save(model.state_dict(), model_save_path)
+    test_generator(model, data_scheduler)
 
 
-def test_generator(model: DIVA):
+def test_generator(model: DIVA, dataset: DataScheduler):
     model.eval()
     sample_num = 10
-    y = np.random.randint(0, 10, sample_num)
-    d = np.random.randint(0, 5, sample_num)
-    x = model.generate_supervised_image(d, y).cpu()
+    xx, yy, dd = model.get_replay_batch(dataset.learned_class, sample_num)
+    # to cpu
+    xx = xx.cpu()
     for i in range(sample_num):
-        plt.imshow(x[i].permute(1, 2, 0), cmap='gray')
-        if y[i] is None:
-            print("X", x[i].shape, "Y is None", "d", d[i])
-            plt.title(f" y = None   d={d[i]}")
+        x, y, d = xx[i], yy[i], dd[i]
+
+        plt.imshow(x.permute(1, 2, 0), cmap='gray')
+        if y is None:
+            print("X", x.shape, "Y is None", "d", d)
+            plt.title(f" y = None   d={d}")
         else:
-            print("X", x[i].shape, "Y", y[i], "d", d[i])
-            plt.title(f" y = {y[i]}   d={d[i]}")
+            print("X", x.shape, "Y", y, "d", d)
+            plt.title(f" y = {y}   d={d}")
 
         plt.show()
 

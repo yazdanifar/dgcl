@@ -44,7 +44,7 @@ class DataScheduler(Iterator):
         self.stage = -1
 
         self.domain_nums = []
-
+        self.learned_class = []
         # Prepare training datasets
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
@@ -139,7 +139,7 @@ class DataScheduler(Iterator):
         elif self.unsup_iterator is None:
             data = next(self.sup_iterator)
             unsup = False
-        elif random.random() < self.unsup_portion:  #TODO: remove random if portion is 0.1 self.step%10==0 should be the if
+        elif random.random() < self.unsup_portion:  # TODO: remove random if portion is 0.1 self.step%10==0 should be the if condition
             data = next(self.unsup_iterator)
             unsup = True
         else:
@@ -147,12 +147,20 @@ class DataScheduler(Iterator):
             unsup = False
         return data, unsup
 
+    def learn_task(self, stage_num):
+        stage = self.schedule['train'][stage_num]
+        for j, subset in enumerate(stage['subsets']):
+            dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
+            if (dataset.domain, dataset.subset_name) not in self.learned_class:
+                self.learned_class.append((dataset.domain, dataset.subset_name))
+
     def __next__(self):
         try:
             data, unsup = self.get_data()
 
         except StopIteration:
             # Progress to next stage
+            self.learn_task(self.stage)
             self.stage += 1
             print('\nProgressing to stage %d' % self.stage)
             if self.stage >= len(self.schedule['train']):
@@ -252,7 +260,7 @@ class DataScheduler(Iterator):
             else:
                 self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
 
-            print("in this stage unsup portion to all baches is:", round(self.unsup_portion,3))
+            print("in this stage unsup portion to all baches is:", round(self.unsup_portion, 3))
             data, unsup = self.get_data()
 
         # Get next data
