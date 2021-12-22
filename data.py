@@ -265,12 +265,11 @@ class DataScheduler(Iterator):
         return self.total_step
 
     def eval_task(self, model, classifier_fn, writer, step, eval_title, task_id, description, data_loader, batch_size):
-        model.eval()
         """
         compute the accuracy over the supervised training set or the testing set
         """
         predictions_d, actuals_d, predictions_y, actuals_y = [], [], [], []
-
+        model.eval()
         with torch.no_grad():
             # use the right data loader
             y_eye = torch.eye(self.class_num)
@@ -362,6 +361,7 @@ class DataScheduler(Iterator):
             accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description,
                                                     eval_data_loader,
                                                     self.config['batch_size'])
+        model.train()
 
 
 # ================
