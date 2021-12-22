@@ -1,5 +1,7 @@
 import os
 import pickle
+import random
+
 import torch
 from tensorboardX import SummaryWriter
 from torch.nn import functional as F
@@ -66,7 +68,8 @@ def train_model(config, model: DIVA,
 
         # Evaluate the model
         if step % config['eval_step'] == 0 or prev_t is None or prev_t != t:
-            scheduler.eval(model, model.classifier, writer, step, 'diva')
+            if step > 5:
+                scheduler.eval(model, model.classifier, writer, step, 'diva')
 
         prev_t = t
 
@@ -87,6 +90,20 @@ def train_model(config, model: DIVA,
 
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
+        loss.backward()
+        if random.random() < config['replay_ratio'] and len(scheduler.learned_class) > 0:
+            x, y, d = model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
+            if y is not None:
+                y = y_eye[y].to(device)
+            d = d_eye[d]
+
+            x, d = x.to(device), d.to(device)
+
+            replay_loss, class_y_loss = model.loss_function(d, x, y)
+            # loss*= something
+            replay_loss.backward()
+            optimizer.step()
+        optimizer.step()
 
         sum_loss += loss
         sum_loss_count += 1
@@ -97,9 +114,6 @@ def train_model(config, model: DIVA,
             )
             sum_loss = 0
             sum_loss_count = 0
-
-        loss.backward()
-        optimizer.step()
 
         train_loss += loss
         epoch_class_y_loss += class_y_loss

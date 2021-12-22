@@ -276,10 +276,12 @@ class DIVA(nn.Module):
         for i in range(batch_size):
             d[i], y[i] = learned_class[choices[i]]
 
-        print("y",y,"d",d)
-        return self.generate_supervised_image(d, y), y, d
+        x = self.generate_supervised_image(d, y)
+        y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
+        return x, y, d
 
     def generate_supervised_image(self, d, y):
+        self.eval()
         assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
         d_eye = torch.eye(self.d_dim)
         y_eye = torch.eye(self.y_dim)
@@ -303,6 +305,7 @@ class DIVA(nn.Module):
 
         x_recon = self.px(zd_p, zx_p, zy_p)
         x_recon = self.get_image_by_recon(x_recon)
+        self.train()
         return x_recon
 
     def forward(self, d, x, y):
