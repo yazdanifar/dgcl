@@ -84,13 +84,20 @@ def train_model(config, model: DIVA,
 
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
+
+        if step % 100 == 0:
+            writer.add_scalar(
+                'training_loss/%s' % ("DIVA"),
+                loss, step
+            )
+
         loss.backward()
         optimizer.step()
 
         train_loss += loss
         epoch_class_y_loss += class_y_loss
 
-    scheduler.eval(model, model.classifier, writer, len(scheduler), 'diva') #eval final model
+    scheduler.eval(model, model.classifier, writer, len(scheduler), 'diva')  # eval final model
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)
 
