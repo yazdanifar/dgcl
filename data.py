@@ -148,11 +148,12 @@ class DataScheduler(Iterator):
         return data, unsup
 
     def learn_task(self, stage_num):
-        stage = self.schedule['train'][stage_num]
-        for j, subset in enumerate(stage['subsets']):
-            dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
-            if (dataset.domain, dataset.subset_name) not in self.learned_class:
-                self.learned_class.append((dataset.domain, dataset.subset_name))
+        if 0 <= stage_num < len(self.schedule['train']):
+            stage = self.schedule['train'][stage_num]
+            for j, subset in enumerate(stage['subsets']):
+                dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
+                if (dataset.domain, dataset.subset_name) not in self.learned_class:
+                    self.learned_class.append((dataset.domain, dataset.subset_name))
 
     def __next__(self):
         try:
