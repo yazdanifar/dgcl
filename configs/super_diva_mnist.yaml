@@ -31,11 +31,16 @@ recon_loss: 'gaussian'
 # Summary #
 ###########
 
-add_time_to_log: False
-summary_step: 100
+add_time_to_log: True
+
+eval_per_task: 3
 eval_step: 600
-summarize_samples: True
 initial_evaluation: False
+eval_in_task_change: False
+
+summary_step: 100
+summarize_samples: True
+
 training_loss_step: 100
 
 ##########

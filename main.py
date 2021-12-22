@@ -75,7 +75,7 @@ def main():
     config_save_path = os.path.join(config['log_dir'], 'config.yaml')
     episode_save_path = os.path.join(config['log_dir'], 'episode.yaml')
     model_save_path = os.path.join(config['log_dir'], 'model.pth')
-    model_load_path = None #"logs/mnist_svhn_6/model.pth"
+    model_load_path = None#"logs/mnist_svhn_6/model.pth"
 
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))

@@ -1,3 +1,4 @@
+import copy
 import os
 import pickle
 import random
@@ -9,8 +10,13 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
-
 from models.model_diva import DIVA
+
+MODEL = {
+    "diva": DIVA
+    # "ndpm_model": NdpmModel
+    # "our": OUR,
+}
 
 
 # import other models
@@ -65,32 +71,43 @@ def train_model(config, model: DIVA,
     sum_loss_count = 0
     sum_replay_loss = 0
     sum_replay_loss_count = 0
+    prev_model = model
 
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
         print('\r[Step {:4}]'.format(step), end=' ')
-        # Evaluate the model
-        if step % config['eval_step'] == 0 or (prev_t is None and config['initial_evaluation']) or (
-                prev_t != t and prev_t is not None):
-            scheduler.eval(model, model.classifier, writer, step, 'diva')
 
+        change_task = prev_t != t and prev_t is not None
+        stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
+            scheduler.task_step[t] / config['eval_per_task'])
+        model_eval = step % stage_eval_step == 0 or (prev_t is None and config['initial_evaluation']) or \
+                     change_task or step == len(scheduler)
+        summarize = step % config['summary_step'] == 0 or 1200 <= step <= 1210
+        summarize_samples = summarize and config['summarize_samples']
         prev_t = t
 
-        summarize = step % config['summary_step'] == 0
-        summarize_samples = summarize and config['summarize_samples']
+        if change_task:
+            scheduler.learn_task(t-1)
+            prev_model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
+            prev_model.load_state_dict(model.state_dict())
+            prev_model.to(config['device'])
+            prev_model.eval()
+
+        # Evaluate the model
+        if model_eval:
+            scheduler.eval(model, model.classifier, writer, step, 'diva')
+        if summarize_samples:
+            print("save reconstructions", end=" ")
+            save_reconstructions(prev_model, model, scheduler, writer, step)
+
+        # Train the model
 
         # Convert to onehot
         if y is not None:
             y = y_eye[y].to(device)
         d = d_eye[d]
 
-        # learn the model
         x, d = x.to(device), d.to(device)
-
-        if summarize_samples:
-            print("save reconstructions", end=" ")
-            save_reconstructions(model, scheduler, writer, step)
-            # save_reconstructions(model, d, x, y, writer, t)
 
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
@@ -99,7 +116,7 @@ def train_model(config, model: DIVA,
 
         r = random.random()
         if r < config['replay_ratio'] and len(scheduler.learned_class) > 0:
-            x, y, d = model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
+            x, y, d = prev_model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
             if y is not None:
                 y = y_eye[y].to(device)
             d = d_eye[d]
@@ -119,7 +136,7 @@ def train_model(config, model: DIVA,
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % ("DIVA", "normal"),
+                    'training_loss/%s_%s' % ("DIVA", "normal"), # TODO: why not model.name?
                     sum_loss / sum_loss_count, step
                 )
             if sum_replay_loss_count != 0:
@@ -135,7 +152,6 @@ def train_model(config, model: DIVA,
         train_loss += loss
         epoch_class_y_loss += class_y_loss
 
-    scheduler.eval(model, model.classifier, writer, len(scheduler), 'diva')  # eval final model
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)
 
@@ -156,10 +172,11 @@ def show_batch(dd, xx, y, t):
         plt.show()
 
 
-def save_reconstructions(model: DIVA, scheduler, writer: SummaryWriter, step):
+def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: SummaryWriter, step):
     # Save reconstuction
+    model.eval()
     if len(scheduler.learned_class) > 0:
-        x, y, d = model.get_replay_batch(scheduler.learned_class, 10)
+        x, y, d = prev_model.get_replay_batch(scheduler.learned_class, 10)
         writer.add_images('generated_images_batch/%s' % ("DIVA"), x, step)
 
     with torch.no_grad():
@@ -178,3 +195,4 @@ def save_reconstructions(model: DIVA, scheduler, writer: SummaryWriter, step):
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
                 x = model.generate_supervised_image(d_n, y)
                 writer.add_images('generated_images_by_domain/%s/domain_%s' % ("DIVA", d), x, step)
+    model.train()

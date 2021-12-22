@@ -41,6 +41,7 @@ class DataScheduler(Iterator):
         self.datasets = [OrderedDict(), OrderedDict()]
 
         self.total_step = 0
+        self.task_step = []
         self.stage = -1
 
         self.domain_nums = []
@@ -56,16 +57,19 @@ class DataScheduler(Iterator):
                 stage_total += len(dataset)
 
             if 'steps' in stage:
-                self.total_step += stage['steps']
+                stage_total = stage['steps']
+                self.task_step.append(stage['steps'])
+
             elif 'epochs' in stage:
-                self.total_step += int(
+                stage_total = int(
                     stage['epochs'] * (stage_total // config['batch_size']))
                 if stage_total % config['batch_size'] > 0:
-                    self.total_step += 1
-            elif 'steps' in stage:
-                self.total_step += sum(stage['steps'])
+                    stage_total += 1
             else:
-                self.total_step += stage_total // config['batch_size']
+                stage_total = stage_total // config['batch_size']
+
+            self.total_step += stage_total
+            self.task_step.append(stage_total)
 
         # Prepare testing datasets
         if self.schedule['test']['tasks'] is None:
@@ -167,7 +171,6 @@ class DataScheduler(Iterator):
 
         except StopIteration:
             # Progress to next stage
-            self.learn_task(self.stage)
             self.stage += 1
             print('\nProgressing to stage %d' % self.stage)
             if self.stage >= len(self.schedule['train']):
@@ -284,7 +287,6 @@ class DataScheduler(Iterator):
         compute the accuracy over the supervised training set or the testing set
         """
         predictions_d, actuals_d, predictions_y, actuals_y = [], [], [], []
-        model.eval()
         with torch.no_grad():
             # use the right data loader
             y_eye = torch.eye(self.class_num)
@@ -345,7 +347,7 @@ class DataScheduler(Iterator):
         for j, subset in enumerate(stage['subsets']):
             dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
             if previous_dataset_name is None or previous_dataset_name != dataset.complete_name:
-                description += dataset.complete_name
+                description += dataset.complete_name  # TODO: why it is not working? (low priority)
             previous_dataset_name = dataset.complete_name
             description += str(dataset.subset_name)
 
@@ -371,7 +373,7 @@ class DataScheduler(Iterator):
             'stage/%s' % (eval_title),
             self.stage, step
         )
-
+        model.eval()
         for i, stage in enumerate(self.schedule['test']['tasks']):
             eval_data_loader, description = self.get_dataloader(stage)
             accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description,

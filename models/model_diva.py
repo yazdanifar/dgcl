@@ -276,10 +276,8 @@ class DIVA(nn.Module):
         for i in range(batch_size):
             d[i], y[i] = learned_class[choices[i]]
 
-        self.eval()
         with torch.no_grad():
             x = self.generate_supervised_image(d, y)
-        self.train()
 
         y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
         return x, y, d
