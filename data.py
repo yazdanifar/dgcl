@@ -380,10 +380,10 @@ class ProxyDataset(Dataset):
 
     def __init__(self, config, subset, train=True):
         dataset_name, subset_name, domain, supervised, portion, rotation = DataScheduler.get_subset_detail(subset)
-        self.domain = domain
+        self.domain = int(domain)
         self.complete_name = dataset_name + str(domain) if rotation is None else str(rotation)
         self.supervised = (supervised == 's')
-        self.subset_name = subset_name
+        self.subset_name = int(subset_name)
         self.portion = portion
 
         transform_list = []

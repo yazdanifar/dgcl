@@ -271,8 +271,8 @@ class DIVA(nn.Module):
         # we could replay based on some thing diffrent
         # (if ew forgot a task we could put more sample
         #  from that task in the batch) p!=uniform
-        y = np.zeros(batch_size)
-        d = np.zeros(batch_size)
+        y = np.zeros(batch_size).astype(int)
+        d = np.zeros(batch_size).astype(int)
         for i in range(batch_size):
             d[i], y[i] = learned_class[choices[i]]
 
