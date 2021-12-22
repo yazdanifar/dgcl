@@ -31,10 +31,16 @@ recon_loss: 'gaussian'
 # Summary #
 ###########
 
-add_time_to_log: True
-summary_step: 250
-eval_step: 250
+add_time_to_log: False
+summary_step: 1750
+eval_step: 1750
 summarize_samples: False
+
+##########
+# Replay #
+##########
+replay_batch_size: 20
+replay_ratio: 1
 
 
 ################
@@ -67,47 +73,11 @@ diva:
   beta_x: 1
   beta_y: 1
 #
-#  w: 100
-#  warmup: 100
-#
-#
-#  parser.add_argument('-w', '--warmup', type=int, default=100, metavar='N',
-#                      help='number of epochs for warm-up. Set to 0 to turn warmup off.')
-#  parser.add_argument('--max_beta', type=float, default=1., metavar='MB',
-#                      help='max beta for warm-up')
-#  parser.add_argument('--min_beta', type=float, default=0.0, metavar='MB',
-#                      help='min beta for warm-up')
-#
-#  parser.add_argument('--outpath', type=str, default='./',
-#                      help='where to save')
-#
-#  args = parser.parse_args()
-#  args.cuda = not args.no_cuda and torch.cuda.is_available()
-#  device = torch.device("cuda" if args.cuda else "cpu")
-#  kwargs = {'num_workers': 1, 'pin_memory': False} if args.cuda else {}
-#
-#  # Model name
-#  args.list_test_domain = [args.list_test_domain]
-#  print(args.outpath)
-#  model_name = args.outpath + 'test_domain_' + str(args.list_test_domain[0]) + '_diva_seed_' + str(
-#      args.seed)
-#  print(model_name)
-#
-#  # Choose training domains
-#  all_training_domains = ['0', '15', '30', '45', '60', '75']
-#  all_training_domains.remove(args.list_test_domain[0])
-#  args.list_train_domains = all_training_domains
-#
-#  print(args.list_test_domain, args.list_train_domains)
+# w, warm_up, N: 100
+#  max_beta, MB: 1    help='max beta for warm-up')
+#  min_beta, MB: 0    help='min beta for warm-up')
 #
 #  # Set seed
 #  torch.manual_seed(args.seed)
 #  torch.backends.cudnn.benchmark = False
 #  np.random.seed(args.seed)
-#
-#  # Load supervised training
-#  train_loader = data_utils.DataLoader(
-#      MnistRotated(args.list_train_domains, args.list_test_domain, args.num_supervised, args.seed, './../dataset/',
-#                   train=True),
-#      batch_size=args.batch_size,
-#      shuffle=True, **kwargs)
