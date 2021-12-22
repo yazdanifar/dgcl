@@ -23,8 +23,10 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml'
-    # 'episodes/simple_mnist_for_test.yaml' # #'episodes/mnist_svhn-online.yaml'
+    '--episode', '-e', default='episodes/continual_diva_mnist_rotate.yaml'
+    # 'episodes/diva_mnist_rotate_sup_and_unsup.yaml'
+    # 'episodes/simple_mnist_for_test.yaml'
+    # 'episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -93,6 +95,8 @@ def main():
                 data_scheduler.learn_task(i)
             except:
                 break
+        train_model(config, model, data_scheduler, writer)
+
     else:
         model.to(config['device'])
         train_model(config, model, data_scheduler, writer)
