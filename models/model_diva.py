@@ -204,8 +204,10 @@ class qy(nn.Module):
 
 
 class DIVA(nn.Module):
-    def __init__(self, args, training_batch_size, writer: SummaryWriter):
+    def __init__(self, args, training_batch_size, writer: SummaryWriter, device):
         super(DIVA, self).__init__()
+        self.device = device
+
         self.zd_dim = args['zd_dim']
         self.zx_dim = args['zx_dim']
         self.zy_dim = args['zy_dim']
@@ -216,7 +218,7 @@ class DIVA(nn.Module):
         self.class_num = args['y_dim']
         self.repeat = 100
         self.repeatB = (self.class_num * self.repeat) // training_batch_size  # batch * this = class * repeat)
-        assert self.repeatB*training_batch_size == self.class_num*self.repeat, "repeat and batch size and class num aren't sync"
+        assert self.repeatB * training_batch_size == self.class_num * self.repeat, "repeat and batch size and class num aren't sync"
 
         self.writer = writer
 
@@ -243,6 +245,51 @@ class DIVA(nn.Module):
         self.beta_y = args['beta_y']
 
         self.cuda()
+
+    def get_image_by_recon(self, x):
+
+        batch_size, _, h, w = x.cpu().shape[0],x.cpu().shape[1],x.cpu().shape[2],x.cpu().shape[3]
+        recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general (28 and 256 and 8) and k in range(1)
+        sample = torch.zeros(batch_size, 1, h, w).cuda()
+
+        for i in range(h):
+            for j in range(w):
+
+                # out[:, :, i, j]
+                probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
+
+                # Sample single pixel (each channel independently)
+                for k in range(1):
+                    val, ind = torch.max(probs[:, k], dim=1)
+                    sample[:, k, i, j] = ind.squeeze().float() / 255.
+
+        return sample
+
+    def generate_supervised_image(self, d, y):
+        assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
+        d_eye = torch.eye(self.d_dim)
+        y_eye = torch.eye(self.y_dim)
+        y = y_eye[y]
+        d = d_eye[d]
+        y, d = y.to(self.device), d.to(self.device)
+        batch_size = len(d)
+        zd_p_loc, zd_p_scale = self.pzd(d)
+        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim).cuda(), torch.ones(batch_size, self.zx_dim).cuda()
+        zy_p_loc, zy_p_scale = self.pzy(y)
+
+        # Reparameterization trick
+        pzd = dist.Normal(zd_p_loc, zd_p_scale)
+        zd_p = pzd.rsample()
+
+        pzx = dist.Normal(zx_p_loc, zx_p_scale)
+        zx_p = pzx.rsample()
+
+        pzy = dist.Normal(zy_p_loc, zy_p_scale)
+        zy_p = pzy.rsample()
+
+        x_recon = self.px(zd_p, zx_p, zy_p)
+        x_recon = self.get_image_by_recon(x_recon)
+        return x_recon
 
     def forward(self, d, x, y):
         # Encode

@@ -4,6 +4,7 @@ import shutil
 from argparse import ArgumentParser
 import os
 import yaml
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
@@ -22,7 +23,8 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml'#'episodes/simple_mnist_for_test.yaml' # #'episodes/mnist_svhn-online.yaml'
+    '--episode', '-e', default='episodes/diva_mnist_rotate_sup_and_unsup.yaml'
+    # 'episodes/simple_mnist_for_test.yaml' # #'episodes/mnist_svhn-online.yaml'
 )
 parser.add_argument('--log-dir', '-l')
 parser.add_argument('--override', default='')
@@ -71,8 +73,7 @@ def main():
     config_save_path = os.path.join(config['log_dir'], 'config.yaml')
     episode_save_path = os.path.join(config['log_dir'], 'episode.yaml')
     model_save_path = os.path.join(config['log_dir'], 'model.pth')
-    model_load_path = "logs/mnist_svhn_4/model.pth"
-
+    model_load_path = None#"logs/mnist_svhn_4/model.pth"
 
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))
@@ -83,21 +84,41 @@ def main():
     # test_dataset(data_scheduler)
     # return
     writer = SummaryWriter(config['log_dir'])
-    model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer)
+    model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
 
     model.to(config['device'])
+    # test_generator(model)
     train_model(config, model, data_scheduler, writer)
     torch.save(model.state_dict(), model_save_path)
+
+
+def test_generator(model: DIVA):
+    model.eval()
+    sample_num = 10
+    y = np.random.randint(0, 10, sample_num)
+    d = np.random.randint(0, 5, sample_num)
+    x = model.generate_supervised_image(d, y).cpu()
+    for i in range(sample_num):
+        plt.imshow(x[i].permute(1, 2, 0), cmap='gray')
+        if y[i] is None:
+            print("X", x[i].shape, "Y is None", "d", d[i])
+            plt.title(f" y = None   d={d[i]}")
+        else:
+            print("X", x[i].shape, "Y", y[i], "d", d[i])
+            plt.title(f" y = {y[i]}   d={d[i]}")
+
+        plt.show()
+
 
 def test_dataset(scheduler):
     prev_t = -1
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
-        if step<20:#prev_t != t:
+        if step < 20:  # prev_t != t:
             prev_t = t
-            plt.imshow(x[0].permute(1, 2, 0),cmap='gray')
+            plt.imshow(x[0].permute(1, 2, 0), cmap='gray')
             if y is None:
                 print("X", x.shape, "Y is None", "d", d.shape, "step", step, "task id", t)
                 plt.title(f" y = None   d={d[0]}")
@@ -106,6 +127,7 @@ def test_dataset(scheduler):
                 plt.title(f" y = {y[0]}   d={d[0]}")
 
             plt.show()
+
 
 if __name__ == '__main__':
     main()
