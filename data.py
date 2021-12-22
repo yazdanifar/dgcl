@@ -53,7 +53,7 @@ class DataScheduler(Iterator):
                 if dataset.domain not in self.domain_nums:
                     self.domain_nums.append(dataset.domain)
 
-                stage_total += len(dataset.inner_dataset)
+                stage_total += len(dataset)
 
             if 'steps' in stage:
                 self.total_step += stage['steps']
