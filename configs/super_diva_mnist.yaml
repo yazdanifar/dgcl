@@ -39,8 +39,9 @@ summarize_samples: False
 ##########
 # Replay #
 ##########
-replay_batch_size: 20
+replay_batch_size: 100
 replay_ratio: 1
+replay_loss_multiplier: 1
 
 
 ################

@@ -101,7 +101,7 @@ def train_model(config, model: DIVA,
             x, d = x.to(device), d.to(device)
 
             replay_loss, class_y_loss = model.loss_function(d, x, y)
-            # loss*= something
+            replay_loss *= config['replay_loss_multiplier']
             replay_loss.backward()
             optimizer.step()
 
