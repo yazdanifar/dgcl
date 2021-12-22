@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 100
+batch_size: 50
 num_workers: 4
 eval_batch_size: 100
 eval_num_workers: 4
@@ -32,9 +32,11 @@ recon_loss: 'gaussian'
 ###########
 
 add_time_to_log: False
-summary_step: 1750
-eval_step: 1750
-summarize_samples: False
+summary_step: 100
+eval_step: 600
+summarize_samples: True
+initial_evaluation: False
+training_loss_step: 100
 
 ##########
 # Replay #
