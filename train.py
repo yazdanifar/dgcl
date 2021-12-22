@@ -57,6 +57,9 @@ def train_model(config, model: DIVA,
     y_eye = torch.eye(class_num)
     prev_t = None
 
+    sum_loss = 0
+    sum_loss_count = 0
+
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
         print('\r[Step {:4}]'.format(step), end='')
@@ -85,11 +88,15 @@ def train_model(config, model: DIVA,
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
 
+        sum_loss += loss
+        sum_loss_count += 1
         if step % 100 == 0:
             writer.add_scalar(
                 'training_loss/%s' % ("DIVA"),
-                loss, step
+                sum_loss / sum_loss_count, step
             )
+            sum_loss = 0
+            sum_loss_count = 0
 
         loss.backward()
         optimizer.step()
