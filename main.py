@@ -103,10 +103,13 @@ def main():
         train_model(config, model, data_scheduler, writer)
         torch.save(model.state_dict(), model_save_path)
 
-    test_generator(model, data_scheduler)
+    # test_generator(model, data_scheduler)
 
 
 def test_generator(model: DIVA, dataset: DataScheduler):
+    raise NotImplemented
+    # dataset.learned_class changed!
+
     model.eval()
     sample_num = 10
     xx, yy, dd = model.get_replay_batch(dataset.learned_class, sample_num)

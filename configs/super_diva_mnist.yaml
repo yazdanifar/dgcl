@@ -47,9 +47,9 @@ training_loss_step: 100
 # Replay #
 ##########
 replay_batch_size: 100
-replay_ratio: 0
+replay_ratio: 1
 replay_loss_multiplier: 1
-
+equal_loss_scale: True
 
 ################
 # DIVA configs #

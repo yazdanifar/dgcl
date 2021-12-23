@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
-from models.model_diva import DIVA,OurDIVA
+from models.model_diva import DIVA, OurDIVA
 
 MODEL = {
     "DIVA": DIVA,
@@ -82,7 +82,7 @@ def train_model(config, model: DIVA,
         stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
             scheduler.task_step[t] / config['eval_per_task'])
         model_eval = step % stage_eval_step == 0 or (prev_t is None and config['initial_evaluation']) or (
-                    change_task and config['eval_in_task_change']) or step == len(scheduler)-1
+                change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
         summarize = step % config['summary_step'] == 0 or 1200 <= step <= 1210
         summarize_samples = summarize and config['summarize_samples']
         prev_t = t
@@ -110,27 +110,32 @@ def train_model(config, model: DIVA,
 
         x, d = x.to(device), d.to(device)
 
+        # new task batch
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
         optimizer.step()
 
-        r = random.random()
-        if r < config['replay_ratio'] and len(scheduler.learned_class) > 0:
-            x, y, d = prev_model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
-            if y is not None:
-                y = y_eye[y].to(device)
-            d = d_eye[d]
-            x, d = x.to(device), d.to(device)
+        # replay batches
+        if config['replay_ratio'] != 0:
+            for domain_id in range(domain_num):
+                if random.random() < config['replay_ratio'] and len(scheduler.learned_class[domain_id]) > 0:
+                    x, y, d = prev_model.get_replay_batch(scheduler.learned_class[domain_id], config['replay_batch_size'])
+                    if y is not None:
+                        y = y_eye[y].to(device)
+                    d = d_eye[d]
+                    x, d = x.to(device), d.to(device)
 
-            optimizer.zero_grad()
-            replay_loss, class_y_loss = model.loss_function(d, x, y)
-            replay_loss *= config['replay_loss_multiplier']
-            replay_loss.backward()
-            optimizer.step()
+                    optimizer.zero_grad()
+                    replay_loss, class_y_loss = model.loss_function(d, x, y)
+                    if config['equal_loss_scale']:
+                        replay_loss *= (loss.detach() / replay_loss.detach()).detach()
+                    replay_loss *= config['replay_loss_multiplier']
+                    replay_loss.backward()
+                    optimizer.step()
 
-            sum_replay_loss += replay_loss
-            sum_replay_loss_count += 1
+                    sum_replay_loss += replay_loss
+                    sum_replay_loss_count += 1
 
         sum_loss += loss
         sum_loss_count += 1
@@ -176,9 +181,10 @@ def show_batch(dd, xx, y, t):
 def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: SummaryWriter, step):
     # Save reconstuction
     model.eval()
-    if len(scheduler.learned_class) > 0:
-        x, y, d = prev_model.get_replay_batch(scheduler.learned_class, 10)
-        writer.add_images('generated_images_batch/%s' % prev_model.name, x, step)
+    for i in range(model.d_dim):
+        if len(scheduler.learned_class[i]) > 0:
+            x, y, d = prev_model.get_replay_batch(scheduler.learned_class[i], 10)
+            writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
 
     with torch.no_grad():
         all_classes = []
