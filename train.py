@@ -13,8 +13,8 @@ import torch.optim as optim
 from models.model_diva import DIVA,OurDIVA
 
 MODEL = {
-    "diva": DIVA,
-    "our_diva": OurDIVA
+    "DIVA": DIVA,
+    "our_DIVA": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
@@ -54,15 +54,15 @@ def _make_collage(samples, config, grid_h, grid_w):
 def train_model(config, model: DIVA,
                 scheduler: DataScheduler,
                 writer: SummaryWriter):
-    class_num = config['diva']['y_dim']
-    domain_num = config['diva']['d_dim']
+    class_num = config['DIVA']['y_dim']
+    domain_num = config['DIVA']['d_dim']
 
     device = config['device']
     train_loss = 0
     epoch_class_y_loss = 0
     model.train()
 
-    optimizer = optim.Adam(model.parameters(), lr=config['diva']['lr'])
+    optimizer = optim.Adam(model.parameters(), lr=config['DIVA']['lr'])
 
     d_eye = torch.eye(domain_num)
     y_eye = torch.eye(class_num)
@@ -89,7 +89,7 @@ def train_model(config, model: DIVA,
 
         if change_task:
             scheduler.learn_task(t - 1)
-            prev_model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
+            prev_model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
             prev_model.to(config['device'])
             prev_model.eval()

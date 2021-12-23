@@ -24,7 +24,7 @@ y_c: 10
 
 device: 'cuda'
 testing_mode: True
-model_name: 'diva'
+model_name: 'DIVA'
 recon_loss: 'gaussian'
 
 ###########
@@ -47,14 +47,14 @@ training_loss_step: 100
 # Replay #
 ##########
 replay_batch_size: 100
-replay_ratio: 1
+replay_ratio: 0
 replay_loss_multiplier: 1
 
 
 ################
 # DIVA configs #
 ################
-diva:
+DIVA:
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False

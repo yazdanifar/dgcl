@@ -13,8 +13,8 @@ from models.model_diva import DIVA, OurDIVA
 from train import train_model
 
 MODEL = {
-    "diva": DIVA,
-    "our_diva": OurDIVA
+    "DIVA": DIVA,
+    "our_DIVA": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
@@ -87,7 +87,7 @@ def main():
     # test_dataset(data_scheduler)
     # return
     writer = SummaryWriter(config['log_dir'])
-    model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
+    model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
         model.to(config['device'])

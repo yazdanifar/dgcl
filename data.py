@@ -34,8 +34,8 @@ class DataScheduler(Iterator):
     def __init__(self, config):
         self.config = config
         self.device = config['device']
-        self.class_num = config['diva']['y_dim']
-        self.domain_num = config['diva']['d_dim']
+        self.class_num = config['DIVA']['y_dim']
+        self.domain_num = config['DIVA']['d_dim']
         self.schedule = config['data_schedule']
 
         self.datasets = [OrderedDict(), OrderedDict()]

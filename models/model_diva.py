@@ -269,8 +269,8 @@ class DIVA(nn.Module):
 
     def get_replay_batch(self, learned_class, batch_size):
         choices = np.random.choice(np.arange(len(learned_class)), batch_size)
-        # we could replay based on some thing diffrent
-        # (if ew forgot a task we could put more sample
+        # we could replay based on some thing different
+        # (if we forgot a task we could put more sample
         #  from that task in the batch) p!=uniform
         y = np.zeros(batch_size).astype(int)
         d = np.zeros(batch_size).astype(int)
