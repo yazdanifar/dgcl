@@ -80,14 +80,14 @@ def train_model(config, model: DIVA,
         change_task = prev_t != t and prev_t is not None
         stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
             scheduler.task_step[t] / config['eval_per_task'])
-        model_eval = step % stage_eval_step == 0 or (prev_t is None and config['initial_evaluation']) or \
-                     change_task or step == len(scheduler)
+        model_eval = step % stage_eval_step == 0 or (prev_t is None and config['initial_evaluation']) or (
+                    change_task and config['eval_in_task_change']) or step == len(scheduler)-1
         summarize = step % config['summary_step'] == 0 or 1200 <= step <= 1210
         summarize_samples = summarize and config['summarize_samples']
         prev_t = t
 
         if change_task:
-            scheduler.learn_task(t-1)
+            scheduler.learn_task(t - 1)
             prev_model = MODEL[config['model_name']](config['diva'], config['batch_size'], writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
             prev_model.to(config['device'])
@@ -136,7 +136,7 @@ def train_model(config, model: DIVA,
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % ("DIVA", "normal"), # TODO: why not model.name?
+                    'training_loss/%s_%s' % ("DIVA", "normal"),  # TODO: why not model.name?
                     sum_loss / sum_loss_count, step
                 )
             if sum_replay_loss_count != 0:
