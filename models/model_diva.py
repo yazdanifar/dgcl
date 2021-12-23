@@ -207,6 +207,7 @@ class qy(nn.Module):
 class DIVA(nn.Module):
     def __init__(self, args, training_batch_size, writer: SummaryWriter, device):
         super(DIVA, self).__init__()
+        self.name = "DIVA"
         self.device = device
 
         self.zd_dim = args['zd_dim']
@@ -248,7 +249,7 @@ class DIVA(nn.Module):
         self.cuda()
 
     def get_image_by_recon(self, x):
-        x_shape=x.cpu().shape
+        x_shape = x.cpu().shape
         batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
         recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
         sample = torch.zeros(batch_size, 1, h, w).cuda()
@@ -476,6 +477,49 @@ class DIVA(nn.Module):
         with torch.no_grad():
             zd_q_loc, zd_q_scale = self.qzd(x)
             zd = zd_q_loc
+            alpha = F.softmax(self.qd(zd), dim=1)
+
+            # get the index (digit) that corresponds to
+            # the maximum predicted class probability
+            res, ind = torch.topk(alpha, 1)
+
+            # convert the digit(s) to one-hot tensor(s)
+            d = x.new_zeros(alpha.size())
+            d = d.scatter_(1, ind, 1.0)
+
+            zy_q_loc, zy_q_scale = self.qzy.forward(x)
+            zy = zy_q_loc
+            alpha = F.softmax(self.qy(zy), dim=1)
+
+            # get the index (digit) that corresponds to
+            # the maximum predicted class probability
+            res, ind = torch.topk(alpha, 1)
+
+            # convert the digit(s) to one-hot tensor(s)
+            y = x.new_zeros(alpha.size())
+            y = y.scatter_(1, ind, 1.0)
+
+        return d, y
+
+
+class OurDIVA(DIVA):
+    def __init__(self, args, training_batch_size, writer: SummaryWriter, device):
+        super(OurDIVA, self).__init__(args, training_batch_size, writer, device)
+        self.name = "OurDIVA"
+
+    def classifier(self, x):
+        """
+        classify an image (or a batch of images)
+        :param xs: a batch of scaled vectors of pixels from an image
+        :return: a batch of the corresponding class labels (as one-hots)
+        """
+        with torch.no_grad():
+            y_onehot = torch.eye(self.y_dim, device=self.device)
+            d_onehot = torch.eye(self.d_dim, device=self.device)
+
+            zd_q_loc, zd_q_scale = self.qzd(x)
+            zd = zd_q_loc
+
             alpha = F.softmax(self.qd(zd), dim=1)
 
             # get the index (digit) that corresponds to

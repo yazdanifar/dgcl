@@ -10,10 +10,11 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
-from models.model_diva import DIVA
+from models.model_diva import DIVA,OurDIVA
 
 MODEL = {
-    "diva": DIVA
+    "diva": DIVA,
+    "our_diva": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
@@ -95,7 +96,7 @@ def train_model(config, model: DIVA,
 
         # Evaluate the model
         if model_eval:
-            scheduler.eval(model, model.classifier, writer, step, 'diva')
+            scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
             print("save reconstructions", end=" ")
             save_reconstructions(prev_model, model, scheduler, writer, step)
@@ -136,12 +137,12 @@ def train_model(config, model: DIVA,
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % ("DIVA", "normal"),  # TODO: why not model.name?
+                    'training_loss/%s_%s' % (model.name, "normal"),
                     sum_loss / sum_loss_count, step
                 )
             if sum_replay_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % ("DIVA", "replay"),
+                    'training_loss/%s_%s' % (model.name, "replay"),
                     sum_replay_loss / sum_replay_loss_count, step
                 )
             sum_loss = 0
@@ -177,7 +178,7 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
     model.eval()
     if len(scheduler.learned_class) > 0:
         x, y, d = prev_model.get_replay_batch(scheduler.learned_class, 10)
-        writer.add_images('generated_images_batch/%s' % ("DIVA"), x, step)
+        writer.add_images('generated_images_batch/%s' % prev_model.name, x, step)
 
     with torch.no_grad():
         all_classes = []
@@ -194,5 +195,5 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
             if len(yy) > 0:
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
                 x = model.generate_supervised_image(d_n, y)
-                writer.add_images('generated_images_by_domain/%s/domain_%s' % ("DIVA", d), x, step)
+                writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()

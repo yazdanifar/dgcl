@@ -9,11 +9,12 @@ import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
-from models.model_diva import DIVA
+from models.model_diva import DIVA, OurDIVA
 from train import train_model
 
 MODEL = {
-    "diva": DIVA
+    "diva": DIVA,
+    "our_diva": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
