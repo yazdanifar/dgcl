@@ -116,7 +116,7 @@ def train_model(config, model: DIVA,
         optimizer.step()
 
         r = random.random()
-        if r < config['replay_ratio'] and len(scheduler.learned_class) > 0:
+        if config['enable_replay'] and r < config['replay_ratio'] and len(scheduler.learned_class) > 0:
             x, y, d = prev_model.get_replay_batch(scheduler.learned_class, config['replay_batch_size'])
             if y is not None:
                 y = y_eye[y].to(device)
