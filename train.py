@@ -76,7 +76,7 @@ def train_model(config, model: DIVA,
 
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
-        print('\r[Step {:4}]'.format(step), end=' ')
+        print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
 
         change_task = prev_t != t and prev_t is not None
         stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
