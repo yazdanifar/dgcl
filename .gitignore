@@ -9,4 +9,6 @@ data_files
 logs
 
 
+venv
 
+__pycache__/
