@@ -249,7 +249,7 @@ class DIVA(nn.Module):
         self.cuda()
 
     def get_image_by_recon(self, x):
-        x_shape = x.cpu().shape
+        x_shape = x.shape
         batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
         recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
         sample = torch.zeros(batch_size, 1, h, w).cuda()

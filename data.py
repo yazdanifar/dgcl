@@ -297,47 +297,31 @@ class DataScheduler(Iterator):
         """
         compute the accuracy over the supervised training set or the testing set
         """
-        predictions_d, actuals_d, predictions_y, actuals_y = [], [], [], []
+        accurate_preds_d = 0
+        accurate_preds_y = 0
         with torch.no_grad():
             # use the right data loader
-            y_eye = torch.eye(self.class_num)
-            d_eye = torch.eye(self.domain_num)
+            y_eye = torch.eye(self.class_num, device=self.device)
+            d_eye = torch.eye(self.domain_num, device=self.device)
             for (xs, ys, ds) in data_loader:
-                ys = y_eye[ys]
-
-                # Convert to onehot
-
-                ds = d_eye[ds]
-
                 # To device
                 xs, ys, ds = xs.to(self.device), ys.to(self.device), ds.to(self.device)
 
+                # Convert to onehot
+                ds = d_eye[ds]
+                ys = y_eye[ys]
+
                 # use classification function to compute all predictions for each batch
                 pred_d, pred_y = classifier_fn(xs)
-                predictions_d.append(pred_d)
-                actuals_d.append(ds)
-                predictions_y.append(pred_y)
-                actuals_y.append(ys)
+                accurate_preds_d += torch.sum(pred_d * ds)
+                accurate_preds_y += torch.sum(pred_y * ys)
 
-            # compute the number of accurate predictions
-            accurate_preds_d = 0
-            for pred, act in zip(predictions_d, actuals_d):
-                for i in range(pred.size(0)):
-                    v = torch.sum(pred[i] == act[i])
-                    accurate_preds_d += (v.item() == self.domain_num)
 
             # calculate the accuracy between 0 and 1
-            accuracy_d = (accurate_preds_d * 1.0) / (len(predictions_d) * self.config['eval_batch_size'])
-
-            # compute the number of accurate predictions
-            accurate_preds_y = 0
-            for pred, act in zip(predictions_y, actuals_y):
-                for i in range(pred.size(0)):
-                    v = torch.sum(pred[i] == act[i])
-                    accurate_preds_y += (v.item() == self.class_num)
+            accuracy_d = (accurate_preds_d.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
 
             # calculate the accuracy between 0 and 1
-            accuracy_y = (accurate_preds_y * 1.0) / (len(predictions_y) * self.config['eval_batch_size'])
+            accuracy_y = (accurate_preds_y.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
 
             writer.add_scalar(
                 'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
