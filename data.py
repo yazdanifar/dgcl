@@ -86,11 +86,16 @@ class DataScheduler(Iterator):
         if self.schedule['test']['include-training-task']:
             self.schedule['test']['tasks'] = self.schedule['train'] + self.schedule['test']['tasks']
 
+        self.eval_data_loaders = []
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
                 dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
                 if dataset.domain not in self.domain_nums:
                     self.domain_nums.append(dataset.domain)
+            eval_data_loader, description = self.get_dataloader(stage)
+            self.eval_data_loaders.append((eval_data_loader, description))
+
+
 
         self.sup_iterator = None
         self.unsup_iterator = None
@@ -288,7 +293,7 @@ class DataScheduler(Iterator):
     def __len__(self):
         return self.total_step
 
-    def eval_task(self, model, classifier_fn, writer, step, eval_title, task_id, description, data_loader, batch_size):
+    def eval_task(self, classifier_fn, writer, step, eval_title, task_id, description, data_loader, batch_size):
         """
         compute the accuracy over the supervised training set or the testing set
         """
@@ -380,9 +385,9 @@ class DataScheduler(Iterator):
             self.stage, step
         )
         model.eval()
-        for i, stage in enumerate(self.schedule['test']['tasks']):
-            eval_data_loader, description = self.get_dataloader(stage)
-            accuracy_d, accuracy_y = self.eval_task(model, classifier_fn, writer, step, eval_title, i, description,
+        for i, eval_related in enumerate(self.eval_data_loaders):
+            eval_data_loader, description= eval_related
+            accuracy_d, accuracy_y = self.eval_task(classifier_fn, writer, step, eval_title, i, description,
                                                     eval_data_loader,
                                                     self.config['batch_size'])
         model.train()
