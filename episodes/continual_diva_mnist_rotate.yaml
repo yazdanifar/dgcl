@@ -62,21 +62,29 @@ test:
                  ['mnist', 4, 1, 15 ], ['mnist', 5, 1, 15 ],
                  ['mnist', 6, 1, 15 ], ['mnist', 7, 1, 15 ],
                  ['mnist', 8, 1, 15 ], ['mnist', 9, 1, 15 ] ]
+      start_from: 1
+
     - subsets: [ ['mnist', 0, 2, 30 ], ['mnist', 1, 2, 30 ],
                  ['mnist', 2, 2, 30 ], ['mnist', 3, 2, 30 ],
                  ['mnist', 4, 2, 30 ], ['mnist', 5, 2, 30 ],
                  ['mnist', 6, 2, 30 ], ['mnist', 7, 2, 30 ],
                  ['mnist', 8, 2, 30 ], ['mnist', 9, 2, 30 ] ]
+      start_from: 2
+
     - subsets: [ ['mnist', 0, 3, 45 ], ['mnist', 1, 3, 45 ],
                  ['mnist', 2, 3, 45 ], ['mnist', 3, 3, 45 ],
                  ['mnist', 4, 3, 45 ], ['mnist', 5, 3, 45 ],
                  ['mnist', 6, 3, 45 ], ['mnist', 7, 3, 45 ],
                  ['mnist', 8, 3, 45 ], ['mnist', 9, 3, 45 ] ]
+      start_from: 3
+
     - subsets: [ ['mnist', 0, 4, 60 ], ['mnist', 1, 4, 60 ],
                  ['mnist', 2, 4, 60 ], ['mnist', 3, 4, 60 ],
                  ['mnist', 4, 4, 60 ], ['mnist', 5, 4, 60 ],
                  ['mnist', 6, 4, 60 ], ['mnist', 7, 4, 60 ],
                  ['mnist', 8, 4, 60 ], ['mnist', 9, 4, 60 ] ]
+      start_from: 4
+
     - subsets: [ ['mnist', 0, 5, 75 ], ['mnist', 1, 5, 75 ],
                  ['mnist', 2, 5, 75 ], ['mnist', 3, 5, 75 ],
                  ['mnist', 4, 5, 75 ], ['mnist', 5, 5, 75 ],

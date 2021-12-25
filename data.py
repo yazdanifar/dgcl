@@ -1,4 +1,5 @@
 import copy
+import time
 import warnings
 from abc import ABC, abstractmethod
 from collections import Iterator, OrderedDict
@@ -93,7 +94,7 @@ class DataScheduler(Iterator):
                 if dataset.domain not in self.domain_nums:
                     self.domain_nums.append(dataset.domain)
             eval_data_loader, description = self.get_dataloader(stage)
-            self.eval_data_loaders.append((eval_data_loader, description))
+            self.eval_data_loaders.append((eval_data_loader, description, stage.get('start_from', 0)))
 
         self.sup_iterator = None
         self.unsup_iterator = None
@@ -261,6 +262,7 @@ class DataScheduler(Iterator):
                     collate_fn=collate_fn,
                     sampler=sup_sampler,
                     drop_last=True,
+                    pin_memory=True
                 ))
             if unsup_dataset is not None:
                 self.unsup_iterator = iter(DataLoader(
@@ -270,6 +272,7 @@ class DataScheduler(Iterator):
                     collate_fn=collate_fn,
                     sampler=unsup_sampler,
                     drop_last=True,
+                    pin_memory=True
                 ))
 
             if sup_dataset is None:
@@ -291,7 +294,7 @@ class DataScheduler(Iterator):
     def __len__(self):
         return self.total_step
 
-    def eval_task(self, classifier_fn, writer, step, eval_title, task_id, description, data_loader, batch_size):
+    def eval_task(self, classifier_fn, writer, step, eval_title, task_id, description, data_loader):
         """
         compute the accuracy over the supervised training set or the testing set
         """
@@ -355,10 +358,12 @@ class DataScheduler(Iterator):
             collate_fn=collate_fn,
             sampler=None,
             drop_last=True,
+            pin_memory=True
         )
         return eval_data_loader, description
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
+        starting_time = time.time()
         print("start evaluation", end=" ")
         writer.add_scalar(
             'stage/%s' % (eval_title),
@@ -366,12 +371,14 @@ class DataScheduler(Iterator):
         )
         model.eval()
         for i, eval_related in enumerate(self.eval_data_loaders):
-            eval_data_loader, description= eval_related
-            accuracy_d, accuracy_y = self.eval_task(classifier_fn, writer, step, eval_title, i, description,
-                                                    eval_data_loader,
-                                                    self.config['batch_size'])
+            eval_data_loader, description, start_from = eval_related
+            if self.stage >= start_from:
+                print(f"\r go to stage {i} of evaluation", end=" ")
+                accuracy_d, accuracy_y = self.eval_task(classifier_fn, writer, step, eval_title, i, description,
+                                                        eval_data_loader)
         model.train()
-        print("end evaluation")
+        ending_time = time.time()
+        print("end evaluation", "Time elapsed:", ending_time - starting_time)
 
 
 # ================
