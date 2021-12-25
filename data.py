@@ -95,8 +95,6 @@ class DataScheduler(Iterator):
             eval_data_loader, description = self.get_dataloader(stage)
             self.eval_data_loaders.append((eval_data_loader, description))
 
-
-
         self.sup_iterator = None
         self.unsup_iterator = None
         self.task = None
@@ -316,7 +314,6 @@ class DataScheduler(Iterator):
                 accurate_preds_d += torch.sum(pred_d * ds)
                 accurate_preds_y += torch.sum(pred_y * ys)
 
-
             # calculate the accuracy between 0 and 1
             accuracy_d = (accurate_preds_d.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
 
@@ -349,15 +346,14 @@ class DataScheduler(Iterator):
             subsets.append(dataset)
         big_dataset = ConcatDataset(subsets)
 
-        # Determine sampler
-        sampler = RandomSampler(big_dataset)
+        # for evaluation no sampler is needed
 
         eval_data_loader = DataLoader(
             big_dataset,
             batch_size=self.config['eval_batch_size'],
             num_workers=self.config['eval_num_workers'],
             collate_fn=collate_fn,
-            sampler=sampler,
+            sampler=None,
             drop_last=True,
         )
         return eval_data_loader, description
@@ -387,10 +383,11 @@ class ProxyDataset(Dataset):
     def __init__(self, config, subset, train=True):
         dataset_name, subset_name, domain, supervised, portion, rotation = DataScheduler.get_subset_detail(subset)
         self.domain = int(domain)
-        self.complete_name = dataset_name + str(domain) if rotation is None else str(rotation)
+        self.complete_name = dataset_name + (str(domain) if rotation is None else str(rotation))
         self.supervised = (supervised == 's')
         self.subset_name = int(subset_name)
         self.portion = portion
+        self.train = train
 
         transform_list = []
         if rotation is not None:
