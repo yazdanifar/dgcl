@@ -88,6 +88,17 @@ def main():
     # return
     writer = SummaryWriter(config['log_dir'])
     model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
+
+    prof = torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        schedule=torch.profiler.schedule(skip_first=10, wait=51, warmup=2, active=7, repeat=4),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(config['log_dir']),
+        record_shapes=False,
+        with_stack=True)
+
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
         model.to(config['device'])
@@ -96,11 +107,11 @@ def main():
                 data_scheduler.learn_task(i)
             except:
                 break
-        train_model(config, model, data_scheduler, writer)
+        train_model(config, model, data_scheduler, writer, prof)
 
     else:
         model.to(config['device'])
-        train_model(config, model, data_scheduler, writer)
+        train_model(config, model, data_scheduler, writer, prof)
         torch.save(model.state_dict(), model_save_path)
 
     # test_generator(model, data_scheduler)
