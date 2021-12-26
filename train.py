@@ -104,8 +104,8 @@ def train_model(config, model: DIVA,
             )
 
         change_task = prev_t != t and prev_t is not None
-        stage_eval_step = config.get('eval_step',int(scheduler.task_step[t] / config['eval_per_task']))
-        summarize_step = config.get('summary_step',int(scheduler.task_step[t] / config['summary_step']))
+        stage_eval_step = config['eval_step'] if config['eval_step'] is not None else int(scheduler.task_step[t] / config['eval_per_task'])
+        summarize_step = config['summary_step'] if config['summary_step'] is not None else int(scheduler.task_step[t] / config['summary_per_task'])
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
                 prev_t is None and config['initial_evaluation']) or (
