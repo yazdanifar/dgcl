@@ -79,7 +79,13 @@ def train_model(config, model: DIVA,
 
     prof.start()
 
+    end_time_ow = time.time()
+
     for step, (x, y, d, t) in enumerate(scheduler):
+        start_time_ow = time.time()
+        if config['print_times']:
+            print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))
+
         step += 1
         print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
         if step % config['training_loss_step'] == 0:
@@ -100,8 +106,8 @@ def train_model(config, model: DIVA,
             scheduler.task_step[t] / config['eval_per_task'])
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
-                    prev_t is None and config['initial_evaluation']) or (
-                                 change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
+                prev_t is None and config['initial_evaluation']) or (
+                             change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
 
         summarize = (step % config['summary_step'] == 7 and step > 7) or 1200 <= step <= 1210
         summarize_samples = summarize and config['summarize_samples']
@@ -118,7 +124,7 @@ def train_model(config, model: DIVA,
         if model_eval:
             scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
-            print("save reconstructions", end=" ")
+            print("save reconstructions")
             save_reconstructions(prev_model, model, scheduler, writer, step)
 
         # to device
@@ -133,6 +139,8 @@ def train_model(config, model: DIVA,
         d = d_eye[d]
 
         # new task batch
+        start_time = time.time()
+
         optimizer.zero_grad()
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
@@ -140,12 +148,22 @@ def train_model(config, model: DIVA,
         sum_loss += loss
         sum_loss_count += 1
 
+        end_time = time.time()
+        sum_time = (end_time - start_time)
+        if config['print_times']:
+            print("training time", round((end_time - start_time) * 100, 2), "SUP" if (class_y_loss != 0) else "UNSUP")
+
         # replay batches
         if config['replay_ratio'] != 0:
             for domain_id in range(domain_num):
                 if random.random() < config['replay_ratio'] and len(scheduler.learned_class[domain_id]) > 0:
+                    start_time = time.time()
+
                     x, y, d = prev_model.get_replay_batch(scheduler.learned_class[domain_id],
                                                           config['replay_batch_size'])
+
+                    mid_time = time.time()
+
                     y = y_eye[y]
                     d = d_eye[d]
 
@@ -156,6 +174,13 @@ def train_model(config, model: DIVA,
                     replay_loss *= config['replay_loss_multiplier']
                     replay_loss.backward()
                     optimizer.step()
+
+                    end_time = time.time()
+                    sum_time += (end_time - start_time)
+
+                    if config['print_times']:
+                        print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
+                              round((end_time - mid_time) * 100, 3))
 
                     sum_replay_loss += replay_loss
                     sum_replay_loss_count += 1
@@ -181,6 +206,9 @@ def train_model(config, model: DIVA,
         epoch_class_y_loss += class_y_loss
 
         prof.step()
+        end_time_ow = time.time()
+        if config['print_times']:
+            print("all time:", round((end_time_ow - start_time_ow) * 100, 3), "use full:", round(sum_time * 100, 3))
 
     prof.stop()
     train_loss /= len(scheduler)

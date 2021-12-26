@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -306,7 +308,9 @@ class DIVA(nn.Module):
         zy_p = pzy.rsample()
 
         x_recon = self.px(zd_p, zx_p, zy_p)
+        s_t=time.time()
         x_recon = self.get_image_by_recon(x_recon)
+        # print("REAL USELESS:", round((time.time()-s_t)*100,3))
         return x_recon
 
     def forward(self, d, x, y):
@@ -363,6 +367,7 @@ class DIVA(nn.Module):
             zy_q_loc, zy_q_scale = self.qzy(x)
 
             qzd = dist.Normal(zd_q_loc, zd_q_scale)
+
             zd_q = qzd.rsample()
             if self.zx_dim != 0:
                 qzx = dist.Normal(zx_q_loc, zx_q_scale)
@@ -405,7 +410,7 @@ class DIVA(nn.Module):
                                      self.class_num)  # what is 1000,10?(class*repeat, class)
 
             zy_q = zy_q.repeat(self.repeatB, 1)  # what is 10?(batch * this = class * repeat)(B)
-
+            # print(self.repeatB)
             zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.repeatB, 1), zy_q_scale.repeat(self.repeatB,
                                                                                        1)  # what is 10?(B)
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
