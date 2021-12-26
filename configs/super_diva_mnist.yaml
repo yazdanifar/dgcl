@@ -32,16 +32,17 @@ recon_loss: 'gaussian'
 ###########
 
 add_time_to_log: True
+print_times: False
 
 eval_per_task: 3
 eval_step: 600
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_step: 100
+summary_step: 3000
 summarize_samples: True
 
-training_loss_step: 100
+training_loss_step: 300
 
 ##########
 # Replay #
