@@ -378,7 +378,7 @@ class DataScheduler(Iterator):
                                                         eval_data_loader)
         model.train()
         ending_time = time.time()
-        print("end evaluation", "Time elapsed:", ending_time - starting_time)
+        print("\rTime elapsed:", ending_time - starting_time)
 
 
 # ================
