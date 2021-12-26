@@ -2,6 +2,8 @@ import copy
 import os
 import pickle
 import random
+import time
+import psutil
 
 import numpy as np
 import torch
@@ -80,6 +82,18 @@ def train_model(config, model: DIVA,
     for step, (x, y, d, t) in enumerate(scheduler):
         step += 1
         print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
+        if step % config['training_loss_step'] == 0:
+            p = psutil.Process(os.getpid())
+            rss = round(p.memory_info().rss / 1000000000, 2)
+            vms = round(p.memory_info().rss / 1000000000, 2)
+            writer.add_scalar(
+                'memory_prof/%s' % "rss",
+                rss, step
+            )
+            writer.add_scalar(
+                'memory_prof/%s' % "vms",
+                vms, step
+            )
 
         change_task = prev_t != t and prev_t is not None
         stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
