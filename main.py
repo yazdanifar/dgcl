@@ -76,7 +76,7 @@ def main():
     config_save_path = os.path.join(config['log_dir'], 'config.yaml')
     episode_save_path = os.path.join(config['log_dir'], 'episode.yaml')
     model_save_path = os.path.join(config['log_dir'], 'model.pth')
-    model_load_path = None#"logs/mnist_svhn_6/model.pth"
+    model_load_path = None  # "logs/mnist_svhn_6/model.pth"
 
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))
@@ -89,12 +89,13 @@ def main():
     writer = SummaryWriter(config['log_dir'])
     model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
 
+
     prof = torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
         ],
-        schedule=torch.profiler.schedule(skip_first=10, wait=51, warmup=2, active=7, repeat=4),
+        schedule=torch.profiler.schedule(skip_first=1000, wait=51, warmup=2, active=7, repeat=4),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(config['log_dir']),
         record_shapes=False,
         with_stack=True)

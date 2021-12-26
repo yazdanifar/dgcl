@@ -252,7 +252,7 @@ class DIVA(nn.Module):
         x_shape = x.shape
         batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
         recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
-        sample = torch.zeros(batch_size, 1, h, w).cuda()
+        sample = torch.zeros(batch_size, 1, h, w, device=self.device)
 
         for i in range(h):
             for j in range(w):
@@ -292,7 +292,7 @@ class DIVA(nn.Module):
         y, d = y.to(self.device), d.to(self.device)
         batch_size = len(d)
         zd_p_loc, zd_p_scale = self.pzd(d)
-        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim).cuda(), torch.ones(batch_size, self.zx_dim).cuda()
+        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), torch.ones(batch_size, self.zx_dim, device=self.device)
         zy_p_loc, zy_p_scale = self.pzy(y)
 
         # Reparameterization trick
@@ -335,8 +335,8 @@ class DIVA(nn.Module):
         zd_p_loc, zd_p_scale = self.pzd(d)
 
         if self.zx_dim != 0:
-            zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
-                                   torch.ones(zd_p_loc.size()[0], self.zx_dim).cuda()
+            zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=self.device), \
+                                   torch.ones(zd_p_loc.size()[0], self.zx_dim, device=self.device)
         zy_p_loc, zy_p_scale = self.pzy(y)
 
         # Reparameterization trick
@@ -373,8 +373,8 @@ class DIVA(nn.Module):
             zy_q = qzy.rsample()
             zd_p_loc, zd_p_scale = self.pzd(d)
             if self.zx_dim != 0:
-                zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
-                                       torch.ones(zd_p_loc.size()[0], self.zx_dim).cuda()
+                zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=self.device), \
+                                       torch.ones(zd_p_loc.size()[0], self.zx_dim, device=self.device)
 
             pzd = dist.Normal(zd_p_loc, zd_p_scale)
 
@@ -385,7 +385,7 @@ class DIVA(nn.Module):
 
             d_hat = self.qd(zd_q)
             x_recon = self.px(zd_q, zx_q, zy_q)
-            x_recon = x_recon.view(-1, 256)  # what is 256?(image generation batch)
+            x_recon = x_recon.view(-1, 256)  # what is 256?(pixel domain)
             x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
@@ -399,10 +399,10 @@ class DIVA(nn.Module):
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
 
             # Create labels and repeats of zy_q and qzy
-            y_onehot = torch.eye(self.class_num)  # what is 10?(class num)
+            y_onehot = torch.eye(self.class_num, device=self.device)  # what is 10?(class num)
             y_onehot = y_onehot.repeat(1, self.repeat)  # what is 100?(repeat)
             y_onehot = y_onehot.view(self.class_num * self.repeat,
-                                     self.class_num).cuda()  # what is 1000,10?(class*repeat, class)
+                                     self.class_num)  # what is 1000,10?(class*repeat, class)
 
             zy_q = zy_q.repeat(self.repeatB, 1)  # what is 10?(batch * this = class * repeat)(B)
 
@@ -429,7 +429,7 @@ class DIVA(nn.Module):
 
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
-            prior_y = torch.tensor(1 / self.class_num).cuda()  # what is 10?(class num) need change!
+            prior_y = torch.tensor(1 / self.class_num, device=self.device)  # what is 10?(class num) need change!
             prior_y_minus_qy = torch.log(prior_y) - qy.log_prob(y_onehot)
             marginal_prior_y_minus_qy = torch.sum(prob_qy * prior_y_minus_qy)
             return CE_x \
@@ -442,7 +442,7 @@ class DIVA(nn.Module):
         else:  # supervised
             x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y)
 
-            x_recon = x_recon.view(-1, 256)  # what is 256? (image generation batch)
+            x_recon = x_recon.view(-1, 256)  # what is 256? (pixel domain)
             x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
 
