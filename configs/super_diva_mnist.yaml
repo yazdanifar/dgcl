@@ -4,7 +4,7 @@
 
 data_root: 'data_files'
 batch_size: 50
-num_workers: 1
+num_workers: 0
 eval_batch_size: 100
 eval_num_workers: 6
 
