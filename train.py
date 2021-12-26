@@ -79,11 +79,13 @@ def train_model(config, model: DIVA,
 
     prof.start()
 
-    end_time_ow = time.time()
+    print_times=config['print_times']
+    if print_times:
+        end_time_ow = time.time()
 
     for step, (x, y, d, t) in enumerate(scheduler):
-        start_time_ow = time.time()
         if config['print_times']:
+            start_time_ow = time.time()
             print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))
 
         step += 1
@@ -158,25 +160,27 @@ def train_model(config, model: DIVA,
 
         end_time = time.time()
         sum_time = (end_time - start_time)
-        if config['print_times']:
+        if print_times:
             print("training time", round((end_time - start_time) * 100, 2), "SUP" if (class_y_loss != 0) else "UNSUP")
 
         # replay batches
         if config['replay_ratio'] != 0:
             for domain_id in range(domain_num):
                 if random.random() < config['replay_ratio'] and len(scheduler.learned_class[domain_id]) > 0:
-                    start_time = time.time()
+                    if print_times:
+                        start_time = time.time()
 
                     x, y, d = prev_model.get_replay_batch(scheduler.learned_class[domain_id],
                                                           config['replay_batch_size'])
 
-                    mid_time = time.time()
+                    if print_times:
+                        mid_time = time.time()
 
                     y = y_eye[y]
                     d = d_eye[d]
 
                     optimizer.zero_grad()
-                    replay_loss, replay_class_y_loss = model.loss_function(d, x, y)
+                    replay_loss, replay_class_y_loss = model.loss_function(d, x.detach(), y)
                     if config['equal_loss_scale']:
                         replay_loss *= (loss.detach() / replay_loss.detach()).detach()
                     replay_loss *= config['replay_loss_multiplier']
@@ -184,10 +188,11 @@ def train_model(config, model: DIVA,
                     optimizer.step()
                     replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
 
-                    end_time = time.time()
-                    sum_time += (end_time - start_time)
+                    if print_times:
+                        end_time = time.time()
+                        sum_time += (end_time - start_time)
 
-                    if config['print_times']:
+                    if print_times:
                         print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
                               round((end_time - mid_time) * 100, 3))
 
@@ -215,8 +220,9 @@ def train_model(config, model: DIVA,
         epoch_class_y_loss += class_y_loss
 
         prof.step()
-        end_time_ow = time.time()
-        if config['print_times']:
+
+        if print_times:
+            end_time_ow = time.time()
             print("all time:", round((end_time_ow - start_time_ow) * 100, 3), "use full:", round(sum_time * 100, 3))
 
     prof.stop()
