@@ -96,14 +96,14 @@ def train_model(config, model: DIVA,
             )
 
         change_task = prev_t != t and prev_t is not None
-        stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
-            scheduler.task_step[t] / config['eval_per_task'])
+        stage_eval_step = config.get('eval_step',int(scheduler.task_step[t] / config['eval_per_task']))
+        summarize_step = config.get('summary_step',int(scheduler.task_step[t] / config['summary_step']))
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
                 prev_t is None and config['initial_evaluation']) or (
                              change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
 
-        summarize = (step % config['summary_step'] == 7 and step > 7) or 1200 <= step <= 1210
+        summarize = (step % summarize_step == 7 and step > 7)
         summarize_samples = summarize and config['summarize_samples']
         prev_t = t
 

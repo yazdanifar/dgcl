@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 50
-num_workers: 0
+num_workers: 4
 eval_batch_size: 100
-eval_num_workers: 6
+eval_num_workers: 4
 
 label_offset:
   mnist: 0
@@ -35,14 +35,15 @@ add_time_to_log: True
 print_times: False
 
 eval_per_task: 3
-eval_step: 600
+eval_step: 9000
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_step: 3000
+summary_per_task: 3
+summary_step: 9000
 summarize_samples: True
 
-training_loss_step: 300
+training_loss_step: 10
 
 ##########
 # Replay #
