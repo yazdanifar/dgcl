@@ -84,8 +84,8 @@ def train_model(config, model: DIVA,
         print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
         if step % config['training_loss_step'] == 0:
             p = psutil.Process(os.getpid())
-            rss = round(p.memory_info().rss / 1000000000, 2)
-            vms = round(p.memory_info().rss / 1000000000, 2)
+            rss = round(p.memory_info().rss / 1000000000, 9)
+            vms = round(p.memory_info().rss / 1000000000, 9)
             writer.add_scalar(
                 'memory_prof/%s' % "rss",
                 rss, step
@@ -137,6 +137,8 @@ def train_model(config, model: DIVA,
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
         optimizer.step()
+        loss, class_y_loss = loss.detach(), class_y_loss.detach()
+
         sum_loss += loss
         sum_loss_count += 1
 
@@ -156,6 +158,7 @@ def train_model(config, model: DIVA,
                     replay_loss *= config['replay_loss_multiplier']
                     replay_loss.backward()
                     optimizer.step()
+                    replay_loss, replay_class_y_loss= replay_loss.detach(), replay_class_y_loss.detach()
 
                     sum_replay_loss += replay_loss
                     sum_replay_loss_count += 1
@@ -210,6 +213,7 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
         for i in range(model.d_dim):
             if len(scheduler.learned_class[i]) > 0:
                 x, y, d = prev_model.get_replay_batch(scheduler.learned_class[i], 10)
+                x= x.detach()
                 writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
 
         all_classes = []
@@ -225,6 +229,6 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
                     dd.append(d)
             if len(yy) > 0:
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
-                x = model.generate_supervised_image(d_n, y)
+                x = model.generate_supervised_image(d_n, y).detach()
                 writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
