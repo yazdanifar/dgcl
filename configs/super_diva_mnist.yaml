@@ -35,12 +35,12 @@ add_time_to_log: True
 print_times: False
 
 eval_per_task: 3
-eval_step: 9000
+eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
 summary_per_task: 3
-summary_step: 9000
+summary_step:
 summarize_samples: True
 
 training_loss_step: 10
