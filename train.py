@@ -90,8 +90,8 @@ def train_model(config, model: DIVA,
         print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
         if step % config['training_loss_step'] == 0:
             p = psutil.Process(os.getpid())
-            rss = round(p.memory_info().rss / 1000000000, 2)
-            vms = round(p.memory_info().rss / 1000000000, 2)
+            rss = round(p.memory_info().rss / 1000000000, 9)
+            vms = round(p.memory_info().rss / 1000000000, 9)
             writer.add_scalar(
                 'memory_prof/%s' % "rss",
                 rss, step
@@ -102,14 +102,14 @@ def train_model(config, model: DIVA,
             )
 
         change_task = prev_t != t and prev_t is not None
-        stage_eval_step = config['eval_step'] if config['eval_per_task'] is None else int(
-            scheduler.task_step[t] / config['eval_per_task'])
+        stage_eval_step = config.get('eval_step',int(scheduler.task_step[t] / config['eval_per_task']))
+        summarize_step = config.get('summary_step',int(scheduler.task_step[t] / config['summary_step']))
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
                 prev_t is None and config['initial_evaluation']) or (
                              change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
 
-        summarize = (step % config['summary_step'] == 7 and step > 7) or 1200 <= step <= 1210
+        summarize = (step % summarize_step == 7 and step > 7)
         summarize_samples = summarize and config['summarize_samples']
         prev_t = t
 
@@ -145,6 +145,14 @@ def train_model(config, model: DIVA,
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
         optimizer.step()
+
+        loss = loss.detach()
+        try:
+            class_y_loss = class_y_loss.detach()
+        except:
+            # class_y_loss in unsupervised is zero(int)
+            pass
+
         sum_loss += loss
         sum_loss_count += 1
 
@@ -174,6 +182,7 @@ def train_model(config, model: DIVA,
                     replay_loss *= config['replay_loss_multiplier']
                     replay_loss.backward()
                     optimizer.step()
+                    replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
 
                     end_time = time.time()
                     sum_time += (end_time - start_time)
@@ -238,6 +247,7 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
         for i in range(model.d_dim):
             if len(scheduler.learned_class[i]) > 0:
                 x, y, d = prev_model.get_replay_batch(scheduler.learned_class[i], 10)
+                x = x.detach()
                 writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
 
         all_classes = []
@@ -253,6 +263,6 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
                     dd.append(d)
             if len(yy) > 0:
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
-                x = model.generate_supervised_image(d_n, y)
+                x = model.generate_supervised_image(d_n, y).detach()
                 writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
