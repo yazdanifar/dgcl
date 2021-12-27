@@ -58,6 +58,9 @@ equal_loss_scale: False
 # DIVA configs #
 ################
 DIVA:
+  use_aux_domain: True
+  use_aux_class: True
+
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False

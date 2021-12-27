@@ -47,10 +47,6 @@ class DataScheduler(Iterator):
 
         self.domain_nums = []
 
-        self.learned_class = []
-        for i in range(self.domain_num):
-            self.learned_class.append([])
-
         # Prepare training datasets
         for i, stage in enumerate(self.schedule['train']):
             stage_total = 0
@@ -169,11 +165,6 @@ class DataScheduler(Iterator):
                         domain_id is None or dataset.domain == domain_id):
                     ans.append((dataset.domain, dataset.subset_name))
         return ans
-
-    def learn_task(self, stage_num):
-        print(f"task {stage_num} learned!")
-        for d in range(self.domain_num):
-            self.learned_class[d] += self.stage_classes(stage_num, d)
 
     def __next__(self):
         try:

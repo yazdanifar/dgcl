@@ -9,12 +9,12 @@ import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
-from models.model_diva import DIVA, OurDIVA
+from models.model_diva import DIVA#, OurDIVA
 from train import train_model
 
 MODEL = {
     "DIVA": DIVA,
-    "our_DIVA": OurDIVA
+    # "OurDIVA": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
@@ -105,7 +105,7 @@ def main():
         model.to(config['device'])
         for i in range(len(data_scheduler.schedule['train'])):
             try:
-                data_scheduler.learn_task(i)
+                model.learn_task(i, data_scheduler)
             except:
                 break
         train_model(config, model, data_scheduler, writer, prof)
@@ -124,7 +124,7 @@ def test_generator(model: DIVA, dataset: DataScheduler):
 
     model.eval()
     sample_num = 10
-    xx, yy, dd = model.get_replay_batch(dataset.learned_class, sample_num)
+    xx, yy, dd = model.get_replay_batch(model.learned_class, sample_num)
     # to cpu
     xx = xx.cpu()
     for i in range(sample_num):

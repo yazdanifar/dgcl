@@ -238,8 +238,15 @@ class DIVA(nn.Module):
             self.qzx = qzx(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
         self.qzy = qzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
-        self.qd = qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        self.qy = qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        if not args['use_aux_domain']:
+            self.qd = OurQd(self.d_dim, self.zd_dim, self.pzd, self.device)
+        else:
+            self.qd = qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+
+        if not args['use_aux_class']:
+            self.qy = OurQy(self.y_dim, self.zy_dim, self.pzy, self.device)
+        else:
+            self.qy = qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
         self.aux_loss_multiplier_y = args['aux_loss_multiplier_y']
         self.aux_loss_multiplier_d = args['aux_loss_multiplier_d']
@@ -247,6 +254,11 @@ class DIVA(nn.Module):
         self.beta_d = args['beta_d']
         self.beta_x = args['beta_x']
         self.beta_y = args['beta_y']
+
+        self.learned_class = []
+        for i in range(self.d_dim):
+            self.learned_class.append([])
+
 
         self.cuda()
 
@@ -294,7 +306,9 @@ class DIVA(nn.Module):
         y, d = y.to(self.device), d.to(self.device)
         batch_size = len(d)
         zd_p_loc, zd_p_scale = self.pzd(d)
-        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), torch.ones(batch_size, self.zx_dim, device=self.device)
+        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), torch.ones(batch_size,
+                                                                                                    self.zx_dim,
+                                                                                                    device=self.device)
         zy_p_loc, zy_p_scale = self.pzy(y)
 
         # Reparameterization trick
@@ -308,7 +322,7 @@ class DIVA(nn.Module):
         zy_p = pzy.rsample()
 
         x_recon = self.px(zd_p, zx_p, zy_p)
-        s_t=time.time()
+        s_t = time.time()
         x_recon = self.get_image_by_recon(x_recon)
         # print("REAL USELESS:", round((time.time()-s_t)*100,3))
         return x_recon
@@ -506,45 +520,55 @@ class DIVA(nn.Module):
 
         return d, y
 
+    def learn_task(self, stage_num, dataset):
+        print(f"task {stage_num} learned!")
+        for d in range(self.d_dim):
+            self.learned_class[d] += dataset.stage_classes(stage_num, d)
 
-class OurDIVA(DIVA):
-    def __init__(self, args, training_batch_size, writer: SummaryWriter, device):
-        super(OurDIVA, self).__init__(args, training_batch_size, writer, device)
-        self.name = "OurDIVA"
 
-    def classifier(self, x):
-        """
-        classify an image (or a batch of images)
-        :param xs: a batch of scaled vectors of pixels from an image
-        :return: a batch of the corresponding class labels (as one-hots)
-        """
-        with torch.no_grad():
-            y_onehot = torch.eye(self.y_dim, device=self.device)
-            d_onehot = torch.eye(self.d_dim, device=self.device)
+class OurQd(nn.Module):
+    def __init__(self, d_dim, zd_dim, pzd, device):
+        super(OurQd, self).__init__()
+        self.pzd = pzd
+        self.d_dim = d_dim
+        self.zd_dim = zd_dim
+        self.device = device
 
-            zd_q_loc, zd_q_scale = self.qzd(x)
-            zd = zd_q_loc
+    def forward(self, zd: torch.Tensor):
+        d_one_eye = torch.eye(self.d_dim, device=self.device)
+        zd_r = zd.repeat(self.d_dim, 1)
+        d_one_eye_r = d_one_eye.repeat(1, zd.shape[0]).view(-1, self.d_dim)
+        zd_p_loc, zd_p_scale = self.pzd(d_one_eye_r)
+        pz = dist.Normal(zd_p_loc, zd_p_scale)
+        prob = pz.log_prob(zd_r)
+        prob = torch.sum(prob, dim=1)
+        prob = torch.t(prob.view(self.d_dim, -1))
+        max_prob = torch.max(prob, dim=1).values
+        prob -= max_prob[:, None]
+        log_prob_sum = torch.log(torch.sum(torch.exp(prob), dim=1))
+        prob = prob - log_prob_sum[:, None]
+        return prob
 
-            alpha = F.softmax(self.qd(zd), dim=1)
 
-            # get the index (digit) that corresponds to
-            # the maximum predicted class probability
-            res, ind = torch.topk(alpha, 1)
+class OurQy(nn.Module):
+    def __init__(self, y_dim, zy_dim, pzy, device):
+        super(OurQy, self).__init__()
+        self.pzy = pzy
+        self.y_dim = y_dim
+        self.zy_dim = zy_dim
+        self.device = device
 
-            # convert the digit(s) to one-hot tensor(s)
-            d = x.new_zeros(alpha.size())
-            d = d.scatter_(1, ind, 1.0)
-
-            zy_q_loc, zy_q_scale = self.qzy.forward(x)
-            zy = zy_q_loc
-            alpha = F.softmax(self.qy(zy), dim=1)
-
-            # get the index (digit) that corresponds to
-            # the maximum predicted class probability
-            res, ind = torch.topk(alpha, 1)
-
-            # convert the digit(s) to one-hot tensor(s)
-            y = x.new_zeros(alpha.size())
-            y = y.scatter_(1, ind, 1.0)
-
-        return d, y
+    def forward(self, zy: torch.Tensor):
+        y_one_eye = torch.eye(self.y_dim, device=self.device)
+        zy_r = zy.repeat(self.y_dim, 1)
+        y_one_eye_r = y_one_eye.repeat(1, zy.shape[0]).view(-1, self.y_dim)
+        zy_p_loc, zy_p_scale = self.pzy(y_one_eye_r)
+        pz = dist.Normal(zy_p_loc, zy_p_scale)
+        prob = pz.log_prob(zy_r)
+        prob = torch.sum(prob, dim=1)
+        prob = torch.t(prob.view(self.y_dim, -1))
+        max_prob = torch.max(prob, dim=1).values
+        prob -= max_prob[:, None]
+        log_prob_sum = torch.log(torch.sum(torch.exp(prob), dim=1))
+        prob = prob - log_prob_sum[:, None]
+        return prob

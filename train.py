@@ -12,11 +12,11 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
-from models.model_diva import DIVA, OurDIVA
+from models.model_diva import DIVA#, OurDIVA
 
 MODEL = {
     "DIVA": DIVA,
-    "our_DIVA": OurDIVA
+    # "OurDIVA": OurDIVA
     # "ndpm_model": NdpmModel
     # "our": OUR,
 }
@@ -116,7 +116,7 @@ def train_model(config, model: DIVA,
         prev_t = t
 
         if change_task:
-            scheduler.learn_task(t - 1)
+            model.learn_task(t - 1, scheduler)
             prev_model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
             prev_model.to(config['device'])
@@ -166,11 +166,11 @@ def train_model(config, model: DIVA,
         # replay batches
         if config['replay_ratio'] != 0:
             for domain_id in range(domain_num):
-                if random.random() < config['replay_ratio'] and len(scheduler.learned_class[domain_id]) > 0:
+                if random.random() < config['replay_ratio'] and len(model.learned_class[domain_id]) > 0: # TODO: model to prev_model?
                     if print_times:
                         start_time = time.time()
 
-                    x, y, d = prev_model.get_replay_batch(scheduler.learned_class[domain_id],
+                    x, y, d = prev_model.get_replay_batch(model.learned_class[domain_id],
                                                           config['replay_batch_size'])
 
                     if print_times:
@@ -191,8 +191,6 @@ def train_model(config, model: DIVA,
                     if print_times:
                         end_time = time.time()
                         sum_time += (end_time - start_time)
-
-                    if print_times:
                         print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
                               round((end_time - mid_time) * 100, 3))
 
@@ -251,8 +249,8 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
     model.eval()
     with torch.no_grad():
         for i in range(model.d_dim):
-            if len(scheduler.learned_class[i]) > 0:
-                x, y, d = prev_model.get_replay_batch(scheduler.learned_class[i], 10)
+            if len(model.learned_class[i]) > 0:
+                x, y, d = prev_model.get_replay_batch(model.learned_class[i], 10)
                 x = x.detach()
                 writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
 
