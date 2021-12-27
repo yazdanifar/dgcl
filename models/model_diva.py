@@ -47,11 +47,13 @@ class px(nn.Module):
 
 
 class pzd(nn.Module):
-    def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
+    def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim, device):
         super(pzd, self).__init__()
+        self.device = device
         self.fc1 = nn.Sequential(nn.Linear(d_dim, zd_dim, bias=False), nn.BatchNorm1d(zd_dim), nn.ReLU())
         self.fc21 = nn.Sequential(nn.Linear(zd_dim, zd_dim))
         self.fc22 = nn.Sequential(nn.Linear(zd_dim, zd_dim), nn.Softplus())
+        self.d_dim = d_dim
 
         torch.nn.init.xavier_uniform_(self.fc1[0].weight)
         torch.nn.init.xavier_uniform_(self.fc21[0].weight)
@@ -59,12 +61,30 @@ class pzd(nn.Module):
         torch.nn.init.xavier_uniform_(self.fc22[0].weight)
         self.fc22[0].bias.data.zero_()
 
+        self.learned_domain = torch.zeros(d_dim, device=self.device)
+        self.learned_loc = torch.zeros((d_dim, zd_dim), device=self.device)
+        self.learned_scale = torch.zeros((d_dim, zd_dim), device=self.device)
+
     def forward(self, d):
-        hidden = self.fc1(d)
-        zd_loc = self.fc21(hidden)
-        zd_scale = self.fc22(hidden) + 1e-7
+        # TODO: only work for batches that contain only one domain!
+        dd = torch.argmax(d[0])
+        if self.learned_domain[dd]:
+            zd_loc = self.learned_loc[dd].repeat(d.shape[0], 1).detach()
+            zd_scale = self.learned_scale[dd].repeat(d.shape[0], 1).detach()
+        else:
+            hidden = self.fc1(d)
+            zd_loc = self.fc21(hidden)
+            zd_scale = self.fc22(hidden) + 1e-7
 
         return zd_loc, zd_scale
+
+    def learn(self, d):
+        with torch.no_grad():
+            input_d = torch.zeros((2, self.d_dim), device=self.device)
+            input_d[0, d] = 1
+            loc, scale = self(input_d)
+            self.learned_loc[d], self.learned_scale[d] = loc[0].detach(), scale[0].detach()
+            self.learned_domain[d] = 1
 
 
 class pzy(nn.Module):
@@ -230,7 +250,7 @@ class DIVA(nn.Module):
         self.start_zy = self.zd_dim + self.zx_dim
 
         self.px = px(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        self.pzd = pzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        self.pzd = pzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim, device)
         self.pzy = pzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
         self.qzd = qzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
@@ -238,12 +258,16 @@ class DIVA(nn.Module):
             self.qzx = qzx(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
         self.qzy = qzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
-        if not args['use_aux_domain']:
+        self.use_aux_domain = args['use_aux_domain']
+        self.use_aux_class = args['use_aux_class']
+        self.freeze_latent_domain = args['freeze_latent_domain']
+
+        if not self.use_aux_domain:
             self.qd = OurQd(self.d_dim, self.zd_dim, self.pzd, self.device)
         else:
             self.qd = qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
-        if not args['use_aux_class']:
+        if not self.use_aux_class:
             self.qy = OurQy(self.y_dim, self.zy_dim, self.pzy, self.device)
         else:
             self.qy = qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
@@ -258,7 +282,6 @@ class DIVA(nn.Module):
         self.learned_class = []
         for i in range(self.d_dim):
             self.learned_class.append([])
-
 
         self.cuda()
 
@@ -522,8 +545,15 @@ class DIVA(nn.Module):
 
     def learn_task(self, stage_num, dataset):
         print(f"task {stage_num} learned!")
+        learned_domain = []
         for d in range(self.d_dim):
+            if len(dataset.stage_classes(stage_num, d)) > 0:
+                learned_domain.append(d)
             self.learned_class[d] += dataset.stage_classes(stage_num, d)
+
+        if self.freeze_latent_domain:  # TODO: only work for domain incremental case
+            for d in learned_domain:
+                self.pzd.learn(d)
 
 
 class OurQd(nn.Module):

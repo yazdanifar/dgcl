@@ -333,7 +333,7 @@ class DataScheduler(Iterator):
         for j, subset in enumerate(stage['subsets']):
             dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
             if previous_dataset_name is None or previous_dataset_name != dataset.complete_name:
-                description += dataset.complete_name  # TODO: why it is not working? (low priority)
+                description += dataset.complete_name
             previous_dataset_name = dataset.complete_name
             description += str(dataset.subset_name)
 

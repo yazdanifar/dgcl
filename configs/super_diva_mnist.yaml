@@ -61,6 +61,7 @@ DIVA:
   use_aux_domain: True
   use_aux_class: True
 
+  freeze_latent_domain: True
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False
