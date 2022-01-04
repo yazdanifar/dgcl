@@ -54,6 +54,7 @@ class pzd(nn.Module):
         self.fc21 = nn.Sequential(nn.Linear(zd_dim, zd_dim))
         self.fc22 = nn.Sequential(nn.Linear(zd_dim, zd_dim), nn.Softplus())
         self.d_dim = d_dim
+        self.zd_dim = zd_dim
 
         torch.nn.init.xavier_uniform_(self.fc1[0].weight)
         torch.nn.init.xavier_uniform_(self.fc21[0].weight)
@@ -66,16 +67,21 @@ class pzd(nn.Module):
         self.learned_scale = torch.zeros((d_dim, zd_dim), device=self.device)
 
     def forward(self, d):
-        # TODO: only work for batches that contain only one domain!
-        dd = torch.argmax(d[0])
-        if self.learned_domain[dd]:
-            zd_loc = self.learned_loc[dd].repeat(d.shape[0], 1).detach()
-            zd_scale = self.learned_scale[dd].repeat(d.shape[0], 1).detach()
-        else:
-            hidden = self.fc1(d)
-            zd_loc = self.fc21(hidden)
-            zd_scale = self.fc22(hidden) + 1e-7
+        dd = torch.argmax(d, dim=1, keepdim=True)
+        loaded_loc = torch.gather(self.learned_loc, dim=0, index=dd.repeat(1, self.zd_dim)).detach()
+        loaded_scale = torch.gather(self.learned_scale, dim=0, index=dd.repeat(1, self.zd_dim)).detach()
 
+        hidden = self.fc1(d)
+        zd_loc = self.fc21(hidden)
+        zd_scale = self.fc22(hidden) + 1e-7
+
+        loc = torch.cat((torch.unsqueeze(zd_loc, 0), torch.unsqueeze(loaded_loc, 0)), 0)
+        scale = torch.cat((torch.unsqueeze(zd_scale, 0), torch.unsqueeze(loaded_scale, 0)), 0)
+        which_one = torch.gather(self.learned_domain, dim=0, index=torch.squeeze(dd, dim=1)).long()
+        which_one = which_one.view(1, -1, 1).repeat(1, 1, self.zd_dim)
+
+        zd_loc = torch.squeeze(torch.gather(loc, dim=0, index=which_one), dim=0)
+        zd_scale = torch.squeeze(torch.gather(scale, dim=0, index=which_one),  dim=0)
         return zd_loc, zd_scale
 
     def learn(self, d):
