@@ -81,7 +81,7 @@ class pzd(nn.Module):
         which_one = which_one.view(1, -1, 1).repeat(1, 1, self.zd_dim)
 
         zd_loc = torch.squeeze(torch.gather(loc, dim=0, index=which_one), dim=0)
-        zd_scale = torch.squeeze(torch.gather(scale, dim=0, index=which_one),  dim=0)
+        zd_scale = torch.squeeze(torch.gather(scale, dim=0, index=which_one), dim=0)
         return zd_loc, zd_scale
 
     def learn(self, d):
@@ -281,9 +281,7 @@ class DIVA(nn.Module):
         self.beta_x = args['beta_x']
         self.beta_y = args['beta_y']
 
-        self.learned_class = []
-        for i in range(self.d_dim):
-            self.learned_class.append([])
+        self.learned_domain = []
 
         self.cuda()
 
@@ -291,35 +289,20 @@ class DIVA(nn.Module):
         x_shape = x.shape
         batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
         recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
-        sample = torch.zeros(batch_size, 1, h, w, device=self.device)
 
-        for i in range(h):
-            for j in range(w):
-
-                # out[:, :, i, j]
-                probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
-
-                # Sample single pixel (each channel independently)
-                for k in range(1):
-                    val, ind = torch.max(probs[:, k], dim=1)
-                    sample[:, k, i, j] = ind.squeeze().float() / 255.
-
+        sample = torch.argmax(recon_batch, dim=4).float() / 255
         return sample
 
-    def get_replay_batch(self, learned_class, batch_size):
-        choices = np.random.choice(np.arange(len(learned_class)), batch_size)
+    def get_replay_batch(self, domain, batch_size):
         # we could replay based on some thing different
         # (if we forgot a task we could put more sample
         #  from that task in the batch) p!=uniform
-        y = np.zeros(batch_size).astype(int)
-        d = np.zeros(batch_size).astype(int)
-        for i in range(batch_size):
-            d[i], y[i] = learned_class[choices[i]]
+        y = torch.randint(low=0, high=self.y_dim, size=batch_size, device=self.device)
+        d = (torch.ones(batch_size, device=self.device) * domain).long()
 
         with torch.no_grad():
             x = self.generate_supervised_image(d, y)
 
-        y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
         return x, y, d
 
     def generate_supervised_image(self, d, y):
@@ -399,6 +382,7 @@ class DIVA(nn.Module):
     def loss_function(self, d, x, y=None):
         if y is None:  # unsupervised
             # Do standard forward pass for everything not involving y
+            batch_size = d.shape[0]
             zd_q_loc, zd_q_scale = self.qzd(x)
 
             if self.zx_dim != 0:
@@ -551,7 +535,7 @@ class DIVA(nn.Module):
         for d in range(self.d_dim):
             if len(dataset.stage_classes(stage_num, d)) > 0:
                 learned_domain.append(d)
-            self.learned_class[d] += dataset.stage_classes(stage_num, d)
+            self.learned_domain.append(d)
 
         if self.freeze_latent_domain:  # TODO: only work for domain incremental case
             for d in learned_domain:

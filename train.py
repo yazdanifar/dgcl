@@ -166,13 +166,11 @@ def train_model(config, model: DIVA,
         # replay batches
         if config['replay_ratio'] != 0:
             for domain_id in range(domain_num):
-                if random.random() < config['replay_ratio'] and len(model.learned_class[domain_id]) > 0: # TODO: model to prev_model?
+                if random.random() < config['replay_ratio'] and prev_model.pzd.learned_domain[domain_id]: # TODO: model to prev_model?
                     if print_times:
                         start_time = time.time()
 
-                    x, y, d = prev_model.get_replay_batch(model.learned_class[domain_id],
-                                                          config['replay_batch_size'])
-
+                    x, y, d = prev_model.get_replay_batch(domain_id, config['replay_batch_size'])
                     if print_times:
                         mid_time = time.time()
 
@@ -249,8 +247,8 @@ def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: Summa
     model.eval()
     with torch.no_grad():
         for i in range(model.d_dim):
-            if len(model.learned_class[i]) > 0:
-                x, y, d = prev_model.get_replay_batch(model.learned_class[i], 10)
+            if prev_model.pzd.learned_domain[i]:
+                x, y, d = prev_model.get_replay_batch(i, 10)
                 x = x.detach()
                 writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
 
