@@ -93,6 +93,50 @@ class pzd(nn.Module):
             self.learned_domain[d] = 1
 
 
+class pzd_simple(nn.Module):
+    def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim, device):
+        super(pzd_simple, self).__init__()
+        self.device = device
+        self.fc21 = nn.Sequential(nn.Linear(d_dim, zd_dim))
+        self.fc22 = nn.Sequential(nn.Linear(d_dim, zd_dim), nn.Softplus())
+        self.d_dim = d_dim
+        self.zd_dim = zd_dim
+
+        torch.nn.init.xavier_uniform_(self.fc21[0].weight)
+        self.fc21[0].bias.data.zero_()
+        torch.nn.init.xavier_uniform_(self.fc22[0].weight)
+        self.fc22[0].bias.data.zero_()
+
+        self.learned_domain = torch.zeros(d_dim, device=self.device)
+        self.learned_loc = torch.zeros((d_dim, zd_dim), device=self.device)
+        self.learned_scale = torch.zeros((d_dim, zd_dim), device=self.device)
+
+    def forward(self, d):
+        dd = torch.argmax(d, dim=1, keepdim=True)
+        loaded_loc = torch.gather(self.learned_loc, dim=0, index=dd.repeat(1, self.zd_dim)).detach()
+        loaded_scale = torch.gather(self.learned_scale, dim=0, index=dd.repeat(1, self.zd_dim)).detach()
+
+        zd_loc = self.fc21(d)
+        zd_scale = self.fc22(d) + 1e-7
+
+        loc = torch.cat((torch.unsqueeze(zd_loc, 0), torch.unsqueeze(loaded_loc, 0)), 0)
+        scale = torch.cat((torch.unsqueeze(zd_scale, 0), torch.unsqueeze(loaded_scale, 0)), 0)
+        which_one = torch.gather(self.learned_domain, dim=0, index=torch.squeeze(dd, dim=1)).long()
+        which_one = which_one.view(1, -1, 1).repeat(1, 1, self.zd_dim)
+
+        zd_loc = torch.squeeze(torch.gather(loc, dim=0, index=which_one), dim=0)
+        zd_scale = torch.squeeze(torch.gather(scale, dim=0, index=which_one), dim=0)
+        return zd_loc, zd_scale
+
+    def learn(self, d):
+        with torch.no_grad():
+            input_d = torch.zeros((2, self.d_dim), device=self.device)
+            input_d[0, d] = 1
+            loc, scale = self(input_d)
+            self.learned_loc[d], self.learned_scale[d] = loc[0].detach(), scale[0].detach()
+            self.learned_domain[d] = 1
+
+
 class pzy(nn.Module):
     def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
         super(pzy, self).__init__()
@@ -110,6 +154,24 @@ class pzy(nn.Module):
         hidden = self.fc1(y)
         zy_loc = self.fc21(hidden)
         zy_scale = self.fc22(hidden) + 1e-7
+
+        return zy_loc, zy_scale
+
+
+class pzy_simple(nn.Module):
+    def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
+        super(pzy_simple, self).__init__()
+        self.fc21 = nn.Sequential(nn.Linear(y_dim, zy_dim))
+        self.fc22 = nn.Sequential(nn.Linear(y_dim, zy_dim), nn.Softplus())
+
+        torch.nn.init.xavier_uniform_(self.fc21[0].weight)
+        self.fc21[0].bias.data.zero_()
+        torch.nn.init.xavier_uniform_(self.fc22[0].weight)
+        self.fc22[0].bias.data.zero_()
+
+    def forward(self, y):
+        zy_loc = self.fc21(y)
+        zy_scale = self.fc22(y) + 1e-7
 
         return zy_loc, zy_scale
 
@@ -252,8 +314,8 @@ class DIVA(nn.Module):
         self.start_zy = self.zd_dim + self.zx_dim
 
         self.px = px(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        self.pzd = pzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim, device)
-        self.pzy = pzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        self.pzd = pzd_simple(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim, device)
+        self.pzy = pzy_simple(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
         self.qzd = qzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
         if self.zx_dim != 0:
@@ -435,7 +497,7 @@ class DIVA(nn.Module):
             zy_q = zy_q.repeat(self.y_dim, 1)  # what is 10?(batch * class = class * batch)(B)
             # print(self.repeatB)
             zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.y_dim, 1), zy_q_scale.repeat(self.y_dim,
-                                                                                       1)  # what is 10?(B)
+                                                                                     1)  # what is 10?(B)
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
 
             # Do forward pass for everything involving y
