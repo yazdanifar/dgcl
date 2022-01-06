@@ -285,6 +285,35 @@ class DataScheduler(Iterator):
     def __len__(self):
         return self.total_step
 
+    def get_dataloader(self, stage):
+        collate_fn = list(self.datasets[False].values())[0].collate_fn  # Train = False
+        subsets = []
+        description = ""
+        previous_dataset_name = None
+
+        for j, subset in enumerate(stage['subsets']):
+            dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
+            if previous_dataset_name is None or previous_dataset_name != dataset.complete_name:
+                description += dataset.complete_name
+            previous_dataset_name = dataset.complete_name
+            description += str(dataset.subset_name)
+
+            subsets.append(dataset)
+        big_dataset = ConcatDataset(subsets)
+
+        # for evaluation no sampler is needed
+
+        eval_data_loader = DataLoader(
+            big_dataset,
+            batch_size=self.config['eval_batch_size'],
+            num_workers=self.config['eval_num_workers'],
+            collate_fn=collate_fn,
+            sampler=None,
+            drop_last=True,
+            pin_memory=True
+        )
+        return eval_data_loader, description
+
     def eval_task(self, classifier_fn, writer, step, eval_title, task_id, description, data_loader):
         """
         compute the accuracy over the supervised training set or the testing set
@@ -323,35 +352,6 @@ class DataScheduler(Iterator):
                 accuracy_d, step
             )
             return accuracy_d, accuracy_y
-
-    def get_dataloader(self, stage):
-        collate_fn = list(self.datasets[False].values())[0].collate_fn  # Train = False
-        subsets = []
-        description = ""
-        previous_dataset_name = None
-
-        for j, subset in enumerate(stage['subsets']):
-            dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
-            if previous_dataset_name is None or previous_dataset_name != dataset.complete_name:
-                description += dataset.complete_name
-            previous_dataset_name = dataset.complete_name
-            description += str(dataset.subset_name)
-
-            subsets.append(dataset)
-        big_dataset = ConcatDataset(subsets)
-
-        # for evaluation no sampler is needed
-
-        eval_data_loader = DataLoader(
-            big_dataset,
-            batch_size=self.config['eval_batch_size'],
-            num_workers=self.config['eval_num_workers'],
-            collate_fn=collate_fn,
-            sampler=None,
-            drop_last=True,
-            pin_memory=True
-        )
-        return eval_data_loader, description
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
         starting_time = time.time()
