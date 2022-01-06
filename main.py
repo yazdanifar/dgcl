@@ -87,7 +87,7 @@ def main():
     # test_dataset(data_scheduler)
     # return
     writer = SummaryWriter(config['log_dir'])
-    model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
+    model = MODEL[config['model_name']](config['DIVA'], writer, config['device'])
 
 
     prof = torch.profiler.profile(

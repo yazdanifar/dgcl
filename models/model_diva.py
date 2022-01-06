@@ -233,7 +233,7 @@ class qy(nn.Module):
 
 
 class DIVA(nn.Module):
-    def __init__(self, args, training_batch_size, writer: SummaryWriter, device):
+    def __init__(self, args, writer: SummaryWriter, device):
         super(DIVA, self).__init__()
         self.name = "DIVA"
         self.device = device
@@ -246,10 +246,6 @@ class DIVA(nn.Module):
         self.y_dim = args['y_dim']
 
         self.class_num = args['y_dim']
-        self.repeat = 100
-        self.repeatB = (self.class_num * self.repeat) // training_batch_size  # batch * this = class * repeat)
-        assert self.repeatB * training_batch_size == self.class_num * self.repeat, "repeat and batch size and class num aren't sync"
-
         self.writer = writer
 
         self.start_zx = self.zd_dim
@@ -448,13 +444,13 @@ class DIVA(nn.Module):
 
             # Create labels and repeats of zy_q and qzy
             y_onehot = torch.eye(self.class_num, device=self.device)  # what is 10?(class num)
-            y_onehot = y_onehot.repeat(1, self.repeat)  # what is 100?(repeat)
-            y_onehot = y_onehot.view(self.class_num * self.repeat,
-                                     self.class_num)  # what is 1000,10?(class*repeat, class)
+            y_onehot = y_onehot.repeat(1, batch_size)  # what is 100?(repeat)
+            y_onehot = y_onehot.view(self.class_num * batch_size,
+                                     self.class_num)  # what is 1000,10?(class*batch, class)
 
-            zy_q = zy_q.repeat(self.repeatB, 1)  # what is 10?(batch * this = class * repeat)(B)
+            zy_q = zy_q.repeat(self.y_dim, 1)  # what is 10?(batch * class = class * batch)(B)
             # print(self.repeatB)
-            zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.repeatB, 1), zy_q_scale.repeat(self.repeatB,
+            zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.y_dim, 1), zy_q_scale.repeat(self.y_dim,
                                                                                        1)  # what is 10?(B)
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
 

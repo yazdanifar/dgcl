@@ -117,7 +117,7 @@ def train_model(config, model: DIVA,
 
         if change_task:
             model.learn_task(t - 1, scheduler)
-            prev_model = MODEL[config['model_name']](config['DIVA'], config['batch_size'], writer, config['device'])
+            prev_model = MODEL[config['model_name']](config['DIVA'], writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
             prev_model.to(config['device'])
             prev_model.eval()
