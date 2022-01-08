@@ -597,7 +597,7 @@ class DIVA(nn.Module):
         for d in range(self.d_dim):
             if len(dataset.stage_classes(stage_num, d)) > 0:
                 learned_domain.append(d)
-            self.learned_domain.append(d)
+                self.learned_domain.append(d)
 
         if self.freeze_latent_domain:  # TODO: only work for domain incremental case
             for d in learned_domain:
