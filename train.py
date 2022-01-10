@@ -236,7 +236,7 @@ def show_batch(dd, xx, y, t):
         plt.show()
 
 
-def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: SummaryWriter, step, task_number):
+def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, step, task_number):
     # Save reconstuction
     model.eval()
     with torch.no_grad():
