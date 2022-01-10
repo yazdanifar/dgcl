@@ -386,7 +386,7 @@ class ProxyDataset(Dataset):
         self.subset_name = int(subset_name)
         self.portion = portion
         self.train = train
-
+        self.black_and_white = (config['recon_loss'] == 'bernoulli')
         transform_list = []
         if rotation is not None:
             transform_list.append(
@@ -411,7 +411,11 @@ class ProxyDataset(Dataset):
 
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
         img, target = self.inner_dataset.__getitem__(index + self.offset)
-        return self.transform(img), target, self.domain
+        img = self.transform(img)
+        if self.black_and_white:
+            img = (0.5 < img).to(torch.float)
+
+        return img, target, self.domain
 
     def collate_fn(self, batch):
         return default_collate(batch)
@@ -456,10 +460,6 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
             transforms.Resize((config['x_h'], config['x_w'])),
             transforms.ToTensor(),
         ]
-        if config['recon_loss'] == 'bernoulli':
-            transform_list.append(
-                lambda x: (torch.rand_like(x) < x).to(torch.float)
-            )
         if config['x_c'] > 1:
             transform_list.append(
                 lambda x: x.expand(config['x_c'], -1, -1)
