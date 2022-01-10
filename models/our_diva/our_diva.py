@@ -107,7 +107,8 @@ class OurDIVA(nn.Module):
         if not torch.any(self.learned_domain):
             return None
         y = torch.randint(low=0, high=self.y_dim, size=(batch_size,), device=self.device)
-        d = self.learned_domain.multinomial(num_samples=batch_size, replacement=True)
+        d = self.learned_domain.multinomial(num_samples=batch_size, replacement=True).to(self.device)
+
         with torch.no_grad():
             x = self.generate_supervised_image(d, y)
 
@@ -115,7 +116,7 @@ class OurDIVA(nn.Module):
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
-        y_eye = torch.eye(self.y_dim)
+        y_eye = torch.eye(self.y_dim, device=self.device)
         y = y_eye[y]
         d = d_eye[d]
         y, d = y.to(self.device), d.to(self.device)

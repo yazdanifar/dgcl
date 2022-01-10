@@ -147,12 +147,13 @@ def train_model(config, model,
         optimizer.step()
         prof.step() # after training on original data
 
-        loss = loss.detach()
-        if isinstance(class_y_loss, torch.Tensor): # o.w: class_y_loss in unsupervised is zero(int)
-            class_y_loss = class_y_loss.detach()
+        with torch.no_grad():
+            sum_loss += loss
+            sum_loss_count += 1
 
-        sum_loss += loss
-        sum_loss_count += 1
+            train_loss += loss
+            epoch_class_y_loss += class_y_loss
+
 
         end_time = time.time()
         sum_time = (end_time - start_time)
@@ -182,16 +183,15 @@ def train_model(config, model,
                 replay_loss *= config['replay_loss_multiplier']
                 replay_loss.backward()
                 optimizer.step()
-                replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
                 prof.step() # end learning from generated data
                 if print_times:
                     end_time = time.time()
                     sum_time += (end_time - start_time)
                     print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
                           round((end_time - mid_time) * 100, 3))
-
-                sum_replay_loss += replay_loss
-                sum_replay_loss_count += 1
+                with torch.no_grad():
+                    sum_replay_loss += replay_loss
+                    sum_replay_loss_count += 1
 
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
@@ -209,9 +209,6 @@ def train_model(config, model,
 
             sum_replay_loss = 0
             sum_replay_loss_count = 0
-
-        train_loss += loss
-        epoch_class_y_loss += class_y_loss
 
         prof.step()
 

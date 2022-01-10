@@ -94,7 +94,7 @@ def main():
         ],
         schedule=torch.profiler.schedule(skip_first=397, wait=51, warmup=2, active=7, repeat=4),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(config['log_dir']),
-        record_shapes=False,
+        record_shapes=True,
         with_stack=True)
 
     if model_load_path is not None:
