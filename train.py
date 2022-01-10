@@ -126,6 +126,7 @@ def train_model(config, model,
             print("save reconstructions")
             save_reconstructions(prev_model, model, scheduler, writer, step, t)
 
+        prof.step() # after loading data
         # to device
         x, d = x.to(device), d.to(device)
         if y is not None:
@@ -144,6 +145,7 @@ def train_model(config, model,
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
         optimizer.step()
+        prof.step() # after training on original data
 
         loss = loss.detach()
         if isinstance(class_y_loss, torch.Tensor): # o.w: class_y_loss in unsupervised is zero(int)
@@ -163,7 +165,9 @@ def train_model(config, model,
                 if print_times:
                     start_time = time.time()
 
+                prof.step() # start generating data
                 generated = prev_model.generate_replay_batch(config['replay_batch_size'])
+                prof.step() # end generating data/start learning from it
                 if not generated:
                     continue
                 x, y, d = generated
@@ -179,7 +183,7 @@ def train_model(config, model,
                 replay_loss.backward()
                 optimizer.step()
                 replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
-
+                prof.step() # end learning from generated data
                 if print_times:
                     end_time = time.time()
                     sum_time += (end_time - start_time)
