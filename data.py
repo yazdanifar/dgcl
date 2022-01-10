@@ -59,7 +59,6 @@ class DataScheduler(Iterator):
 
             if 'steps' in stage:
                 stage_total = stage['steps']
-                self.task_step.append(stage['steps'])
 
             elif 'epochs' in stage:
                 stage_total = int(
