@@ -114,6 +114,12 @@ class OurDIVA(nn.Module):
 
         return x, y, d
 
+    @staticmethod
+    def reparameterize(mu, std):
+        '''Perform "reparametrization trick" to make these stochastic variables differentiable.'''
+        eps = std.new(std.size()).normal_()  # .requires_grad_()
+        return eps.mul(std).add_(mu)
+
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
         y_eye = torch.eye(self.y_dim, device=self.device)
@@ -131,17 +137,16 @@ class OurDIVA(nn.Module):
         zy_p_loc, zy_p_scale = self.pzy(y)
 
         # Reparameterization trick
-        pzd = dist.Normal(zd_p_loc, zd_p_scale)
-        zd_p = pzd.rsample()
+        zd_p = OurDIVA.reparameterize(zd_p_loc, zd_p_scale)
 
         if self.zx_dim != 0:
-            pzx = dist.Normal(zx_p_loc, zx_p_scale)
-            zx_p = pzx.rsample()
+            zx_p = OurDIVA.reparameterize(zx_p_loc, zx_p_scale)
+
         else:
             zx_p = None
 
-        pzy = dist.Normal(zy_p_loc, zy_p_scale)
-        zy_p = pzy.rsample()
+        zy_p = OurDIVA.reparameterize(zy_p_loc, zy_p_scale)
+
 
         x_recon = self.px(zd_p, zx_p, zy_p)
 
