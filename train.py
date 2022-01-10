@@ -9,16 +9,12 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
-from torch.nn import functional as F
 from data import DataScheduler
 import torch.optim as optim
-from models.model_diva import DIVA#, OurDIVA
+from models.our_diva.our_diva import OurDIVA
 
 MODEL = {
-    "DIVA": DIVA,
-    # "OurDIVA": OurDIVA
-    # "ndpm_model": NdpmModel
-    # "our": OUR,
+    "OurDIVA": OurDIVA
 }
 
 
@@ -46,29 +42,30 @@ def _make_collage(samples, config, grid_h, grid_w):
         config['x_c'], config['x_h'], config['x_w']
     )
     collage = s.permute(2, 0, 3, 1, 4).contiguous().view(
-        config['x_c'],
+        config['y_dim'],
         config['x_h'] * grid_h,
         config['x_w'] * grid_w
     )
     return collage
 
 
-def train_model(config, model: DIVA,
+def train_model(config, model,
                 scheduler: DataScheduler,
                 writer: SummaryWriter,
                 prof: torch.profiler.profile):
-    class_num = config['DIVA']['y_dim']
-    domain_num = config['DIVA']['d_dim']
+
+    class_num = config['y_dim']
+    domain_num = config['d_dim']
 
     device = config['device']
     train_loss = 0
     epoch_class_y_loss = 0
     model.train()
 
-    optimizer = optim.Adam(model.parameters(), lr=config['DIVA']['lr'])
+    optimizer = optim.Adam(model.parameters(), lr=config['model']['lr'])
 
-    d_eye = torch.eye(domain_num, device=device)
-    y_eye = torch.eye(class_num, device=device)
+    d_eye = torch.eye(domain_num, device=device, requires_grad=False)
+    y_eye = torch.eye(class_num, device=device, requires_grad=False)
     prev_t = None
 
     sum_loss = 0
@@ -103,21 +100,21 @@ def train_model(config, model: DIVA,
                 vms, step
             )
 
-        change_task = prev_t != t and prev_t is not None
+        task_changed = prev_t != t and prev_t is not None
         stage_eval_step = config['eval_step'] if config['eval_step'] is not None else int(scheduler.task_step[t] / config['eval_per_task'])
         summarize_step = config['summary_step'] if config['summary_step'] is not None else int(scheduler.task_step[t] / config['summary_per_task'])
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
                 prev_t is None and config['initial_evaluation']) or (
-                             change_task and config['eval_in_task_change']) or step == len(scheduler) - 1
+                             task_changed and config['eval_in_task_change']) or step == len(scheduler) - 1
 
         summarize = (step % summarize_step == 7 and step > 7)
         summarize_samples = summarize and config['summarize_samples']
         prev_t = t
 
-        if change_task:
-            model.learn_task(t - 1, scheduler)
-            prev_model = MODEL[config['model_name']](config['DIVA'], writer, config['device'])
+        if task_changed:
+            model.task_learned(t - 1, scheduler)
+            prev_model = MODEL[config['model_name']](config, writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
             prev_model.to(config['device'])
             prev_model.eval()
@@ -127,7 +124,7 @@ def train_model(config, model: DIVA,
             scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
             print("save reconstructions")
-            save_reconstructions(prev_model, model, scheduler, writer, step)
+            save_reconstructions(prev_model, model, scheduler, writer, step, t)
 
         # to device
         x, d = x.to(device), d.to(device)
@@ -149,11 +146,8 @@ def train_model(config, model: DIVA,
         optimizer.step()
 
         loss = loss.detach()
-        try:
+        if isinstance(class_y_loss, torch.Tensor): # o.w: class_y_loss in unsupervised is zero(int)
             class_y_loss = class_y_loss.detach()
-        except:
-            # class_y_loss in unsupervised is zero(int)
-            pass
 
         sum_loss += loss
         sum_loss_count += 1
@@ -165,35 +159,35 @@ def train_model(config, model: DIVA,
 
         # replay batches
         if config['replay_ratio'] != 0:
-            for domain_id in range(domain_num):
-                if random.random() < config['replay_ratio'] and prev_model.pzd.learned_domain[domain_id]: # TODO: model to prev_model?
-                    if print_times:
-                        start_time = time.time()
+            if random.random() < config['replay_ratio']:
+                if print_times:
+                    start_time = time.time()
 
-                    x, y, d = prev_model.get_replay_batch(domain_id, config['replay_batch_size'])
-                    if print_times:
-                        mid_time = time.time()
+                generated = prev_model.generate_replay_batch(config['replay_batch_size'])
+                if not generated:
+                    continue
+                x, y, d = generated
+                if print_times:
+                    mid_time = time.time()
+                optimizer.zero_grad()
+                replay_loss, replay_class_y_loss = model.train_with_replayed_data(d_eye[d], x.detach(), y_eye[y])
+                if config['equal_loss_scale']:
+                    replay_loss *= (loss.detach() / replay_loss.detach()).detach()
+                if config['scale_replay_loss_wrt_num_tasks']:
+                    replay_loss *= t
+                replay_loss *= config['replay_loss_multiplier']
+                replay_loss.backward()
+                optimizer.step()
+                replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
 
-                    y = y_eye[y]
-                    d = d_eye[d]
+                if print_times:
+                    end_time = time.time()
+                    sum_time += (end_time - start_time)
+                    print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
+                          round((end_time - mid_time) * 100, 3))
 
-                    optimizer.zero_grad()
-                    replay_loss, replay_class_y_loss = model.loss_function(d, x.detach(), y)
-                    if config['equal_loss_scale']:
-                        replay_loss *= (loss.detach() / replay_loss.detach()).detach()
-                    replay_loss *= config['replay_loss_multiplier']
-                    replay_loss.backward()
-                    optimizer.step()
-                    replay_loss, replay_class_y_loss = replay_loss.detach(), replay_class_y_loss.detach()
-
-                    if print_times:
-                        end_time = time.time()
-                        sum_time += (end_time - start_time)
-                        print("generating time", round((mid_time - start_time) * 100, 3), "train on generated",
-                              round((end_time - mid_time) * 100, 3))
-
-                    sum_replay_loss += replay_loss
-                    sum_replay_loss_count += 1
+                sum_replay_loss += replay_loss
+                sum_replay_loss_count += 1
 
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
@@ -242,15 +236,18 @@ def show_batch(dd, xx, y, t):
         plt.show()
 
 
-def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: SummaryWriter, step):
+def save_reconstructions(prev_model: DIVA, model: DIVA, scheduler, writer: SummaryWriter, step, task_number):
     # Save reconstuction
     model.eval()
     with torch.no_grad():
-        for i in range(model.d_dim):
-            if prev_model.pzd.learned_domain[i]:
-                x, y, d = prev_model.get_replay_batch(i, 10)
-                x = x.detach()
-                writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), x, step)
+        generated = prev_model.generate_replay_batch(10 * task_number)
+        if generated:
+            x, y, d = generated
+            for i in torch.unique(d):
+
+                img = x[d == i]
+                img = img.detach()
+                writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), img, step)
 
         all_classes = []
         for i in range(scheduler.stage + 1):

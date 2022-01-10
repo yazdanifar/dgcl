@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 50
-num_workers: 4
+num_workers: 1
 eval_batch_size: 100
-eval_num_workers: 4
+eval_num_workers: 1
 
 label_offset:
   mnist: 0
@@ -20,11 +20,12 @@ label_offset:
 x_c: 1
 x_h: 28
 x_w: 28
-y_c: 10
+y_dim: 10
+d_dim: 6
 
 device: 'cuda'
 testing_mode: True
-model_name: 'DIVA'
+model_name: 'OurDIVA'
 recon_loss: 'gaussian'
 
 ###########
@@ -53,11 +54,11 @@ replay_batch_size: 50
 replay_ratio: 1
 replay_loss_multiplier: 1
 equal_loss_scale: False
-
+scale_replay_loss_wrt_num_tasks: True
 ################
 # DIVA configs #
 ################
-DIVA:
+model:
   use_aux_domain: True
   use_aux_class: True
 
@@ -66,15 +67,8 @@ DIVA:
   description: 'TwoTaskVae'
   no-cuda: False
   seed: 0
-  batch-size: 100
-  epochs: 500
   lr: 0.001
-  num-supervised: 1000
 
-  # Model
-  d_dim: 6
-  x_dim: 784
-  y_dim: 10
   zd_dim: 64
   zx_dim: 64
   zy_dim: 64

@@ -9,14 +9,11 @@ import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
-from models.model_diva import DIVA#, OurDIVA
+from models.our_diva.our_diva import OurDIVA
 from train import train_model
 
 MODEL = {
-    "DIVA": DIVA,
-    # "OurDIVA": OurDIVA
-    # "ndpm_model": NdpmModel
-    # "our": OUR,
+    "OurDIVA": OurDIVA
 }
 
 parser = ArgumentParser()
@@ -87,8 +84,8 @@ def main():
     # test_dataset(data_scheduler)
     # return
     writer = SummaryWriter(config['log_dir'])
-    model = MODEL[config['model_name']](config['DIVA'], writer, config['device'])
-
+    model = MODEL[config['model_name']](config, writer, config['device'])
+    model.to(config['device'])
 
     prof = torch.profiler.profile(
         activities=[
@@ -105,7 +102,7 @@ def main():
         model.to(config['device'])
         for i in range(len(data_scheduler.schedule['train'])):
             try:
-                model.learn_task(i, data_scheduler)
+                model.task_learned(i, data_scheduler)
             except:
                 break
         train_model(config, model, data_scheduler, writer, prof)
@@ -118,13 +115,13 @@ def main():
     # test_generator(model, data_scheduler)
 
 
-def test_generator(model: DIVA, dataset: DataScheduler):
+def test_generator(model, dataset: DataScheduler):
     raise NotImplemented
     # dataset.learned_class changed!
 
     model.eval()
     sample_num = 10
-    xx, yy, dd = model.get_replay_batch(model.learned_class, sample_num)
+    xx, yy, dd = model.generate_replay_batch(model.learned_class, sample_num)
     # to cpu
     xx = xx.cpu()
     for i in range(sample_num):

@@ -35,8 +35,8 @@ class DataScheduler(Iterator):
     def __init__(self, config):
         self.config = config
         self.device = config['device']
-        self.class_num = config['DIVA']['y_dim']
-        self.domain_num = config['DIVA']['d_dim']
+        self.class_num = config['y_dim']
+        self.domain_num = config['d_dim']
         self.schedule = config['data_schedule']
 
         self.datasets = [OrderedDict(), OrderedDict()]
@@ -253,7 +253,7 @@ class DataScheduler(Iterator):
                     collate_fn=collate_fn,
                     sampler=sup_sampler,
                     drop_last=True,
-                    pin_memory=True
+                    pin_memory=False
                 ))
             if unsup_dataset is not None:
                 self.unsup_iterator = iter(DataLoader(
