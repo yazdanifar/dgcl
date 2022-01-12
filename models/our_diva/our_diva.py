@@ -117,8 +117,17 @@ class OurDIVA(nn.Module):
     @staticmethod
     def reparameterize(mu, std):
         '''Perform "reparametrization trick" to make these stochastic variables differentiable.'''
-        eps = std.new(std.size()).normal_()  # .requires_grad_()
+        eps = std.new_empty(std.shape).normal_()  # .requires_grad_()
         return eps.mul(std).add_(mu)
+
+    @staticmethod
+    def log_likelihood_dif(point, mu1, std1, mu2, std2):
+        '''calculate in a differentiable was log p(point| mu1, std1)-log p(point| mu2, std2)'''
+        return torch.sum(torch.log(std2/std1)+(((point-mu2)/std2)**2 - ((point-mu1)/std1)**2 )/2)
+
+    @staticmethod
+    def kl_distribution(mu1, std1, mu2, std2):
+        '''calculate in a differentiable KL (N(mu1,std1) || N(mu2, std2) all inputs are '''
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
@@ -147,7 +156,6 @@ class OurDIVA(nn.Module):
 
         zy_p = OurDIVA.reparameterize(zy_p_loc, zy_p_scale)
 
-
         x_recon = self.px(zd_p, zx_p, zy_p)
 
         return x_recon
@@ -161,16 +169,16 @@ class OurDIVA(nn.Module):
 
         # Reparameterization trick
         qzd = dist.Normal(zd_q_loc, zd_q_scale)
-        zd_q = qzd.rsample()
+        zd_q = OurDIVA.reparameterize(zd_q_loc, zd_q_scale)
         if self.zx_dim != 0:
             qzx = dist.Normal(zx_q_loc, zx_q_scale)
-            zx_q = qzx.rsample()
+            zx_q = OurDIVA.reparameterize(zx_q_loc, zx_q_scale)
         else:
             qzx = None
             zx_q = None
 
         qzy = dist.Normal(zy_q_loc, zy_q_scale)
-        zy_q = qzy.rsample()
+        zy_q=OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
 
         # Decode
         x_recon = self.px(zd_q, zx_q, zy_q)
@@ -206,35 +214,25 @@ class OurDIVA(nn.Module):
                 zx_q_loc, zx_q_scale = self.qzx(x)
             zy_q_loc, zy_q_scale = self.qzy(x)
 
-            qzd = dist.Normal(zd_q_loc, zd_q_scale)
-
-            zd_q = qzd.rsample()
+            zd_q =OurDIVA.reparameterize(zd_q_loc, zd_q_scale)
             if self.zx_dim != 0:
-                qzx = dist.Normal(zx_q_loc, zx_q_scale)
-                zx_q = qzx.rsample()
+                zx_q = OurDIVA.reparameterize(zx_q_loc, zx_q_scale)
             else:
                 zx_q = None
-            qzy = dist.Normal(zy_q_loc, zy_q_scale)
-            zy_q = qzy.rsample()
+            zy_q = OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
+
             zd_p_loc, zd_p_scale = self.pzd(d)
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=self.device), \
                                        torch.ones(zd_p_loc.size()[0], self.zx_dim, device=self.device)
 
-            pzd = dist.Normal(zd_p_loc, zd_p_scale)
-
-            if self.zx_dim != 0:
-                pzx = dist.Normal(zx_p_loc, zx_p_scale)
-            else:
-                pzx = None
-
             d_hat = self.qd(zd_q)
             x_recon = self.px(zd_q, zx_q, zy_q)
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
-            zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
+            zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
 
             if self.zx_dim != 0:
-                KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
+                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_scale, zx_q_scale)
             else:
                 KL_zx = 0
 
@@ -248,13 +246,12 @@ class OurDIVA(nn.Module):
 
             zy_q = zy_q.repeat(self.y_dim, 1)
             zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.y_dim, 1), zy_q_scale.repeat(self.y_dim, 1)
-            qzy = dist.Normal(zy_q_loc, zy_q_scale)
 
             # Do forward pass for everything involving y
             zy_p_loc, zy_p_scale = self.pzy(y_onehot)
 
             # Reparameterization trick
-            pzy = dist.Normal(zy_p_loc, zy_p_scale)
+
 
             # Auxiliary losses
             y_hat = self.qy(zy_q)
@@ -264,6 +261,8 @@ class OurDIVA(nn.Module):
             qy = dist.OneHotCategorical(alpha_y)
             prob_qy = torch.exp(qy.log_prob(y_onehot))
 
+            qzy = dist.Normal(zy_q_loc, zy_q_scale)
+            pzy = dist.Normal(zy_p_loc, zy_p_scale)
             zy_p_minus_zy_q = torch.sum(pzy.log_prob(zy_q) - qzy.log_prob(zy_q), dim=-1)
 
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)

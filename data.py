@@ -69,6 +69,7 @@ class DataScheduler(Iterator):
                 stage_total = stage_total // config['batch_size']
 
             self.total_step += stage_total
+            print("task batches:",stage_total)
             self.task_step.append(stage_total)
 
         # Prepare testing datasets
