@@ -156,28 +156,21 @@ class OurDIVA(nn.Module):
 
         zy_p = OurDIVA.reparameterize(zy_p_loc, zy_p_scale)
 
+
         x_recon = self.px(zd_p, zx_p, zy_p)
 
         return x_recon
 
-    def forward(self, d, x, y):
-        # Encode
-        zd_q_loc, zd_q_scale = self.qzd(x)
-        if self.zx_dim != 0:
-            zx_q_loc, zx_q_scale = self.qzx(x)
-        zy_q_loc, zy_q_scale = self.qzy(x)
+    def forward(self, d, x):
+        zd_q_loc, zd_q_scale, zx_q_loc,zx_q_scale, zy_q_loc, zy_q_scale =self.infer_latent(x)
 
         # Reparameterization trick
-        qzd = dist.Normal(zd_q_loc, zd_q_scale)
         zd_q = OurDIVA.reparameterize(zd_q_loc, zd_q_scale)
         if self.zx_dim != 0:
-            qzx = dist.Normal(zx_q_loc, zx_q_scale)
             zx_q = OurDIVA.reparameterize(zx_q_loc, zx_q_scale)
         else:
-            qzx = None
             zx_q = None
 
-        qzy = dist.Normal(zy_q_loc, zy_q_scale)
         zy_q=OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
 
         # Decode
@@ -185,49 +178,41 @@ class OurDIVA(nn.Module):
 
         zd_p_loc, zd_p_scale = self.pzd(d)
 
-        if self.zx_dim != 0:
-            zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=self.device), \
-                                   torch.ones(zd_p_loc.size()[0], self.zx_dim, device=self.device)
-        zy_p_loc, zy_p_scale = self.pzy(y)
-
-        # Reparameterization trick
-        pzd = dist.Normal(zd_p_loc, zd_p_scale)
-        if self.zx_dim != 0:
-            pzx = dist.Normal(zx_p_loc, zx_p_scale)
-        else:
-            pzx = None
-        pzy = dist.Normal(zy_p_loc, zy_p_scale)
-
         # Auxiliary losses
         d_hat = self.qd(zd_q)
         y_hat = self.qy(zy_q)
 
-        return x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q
+        return x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale)\
+            , zx_q, (zy_q_loc, zy_q_scale), zy_q
+
+    def infer_latent(self, x,disable_qzx=False):
+        # Encode
+        zd_q_loc, zd_q_scale = self.qzd(x)
+        if self.zx_dim != 0 and not disable_qzx:
+            zx_q_loc, zx_q_scale = self.qzx(x)
+        else:
+            zx_q_loc, zx_q_scale = None, None
+        zy_q_loc, zy_q_scale = self.qzy(x)
+        return zd_q_loc, zd_q_scale, zx_q_loc,zx_q_scale, zy_q_loc, zy_q_scale
+
+    def prior_px(self, batch_size):
+        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), \
+                                   torch.ones(batch_size, self.zx_dim, device=self.device)
+
+        return zx_p_loc, zx_p_scale
 
     def loss_function(self, d, x, y=None):
         if y is None:  # unsupervised
             # Do standard forward pass for everything not involving y
             batch_size = d.shape[0]
-            zd_q_loc, zd_q_scale = self.qzd(x)
+            x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale) \
+                ,zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
 
             if self.zx_dim != 0:
-                zx_q_loc, zx_q_scale = self.qzx(x)
-            zy_q_loc, zy_q_scale = self.qzy(x)
-
-            zd_q =OurDIVA.reparameterize(zd_q_loc, zd_q_scale)
-            if self.zx_dim != 0:
-                zx_q = OurDIVA.reparameterize(zx_q_loc, zx_q_scale)
+                zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
             else:
-                zx_q = None
-            zy_q = OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
+                zx_p_loc, zx_p_scale = None, None
 
-            zd_p_loc, zd_p_scale = self.pzd(d)
-            if self.zx_dim != 0:
-                zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim, device=self.device), \
-                                       torch.ones(zd_p_loc.size()[0], self.zx_dim, device=self.device)
-
-            d_hat = self.qd(zd_q)
-            x_recon = self.px(zd_q, zx_q, zy_q)
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
             zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
 
@@ -250,15 +235,11 @@ class OurDIVA(nn.Module):
             # Do forward pass for everything involving y
             zy_p_loc, zy_p_scale = self.pzy(y_onehot)
 
-            # Reparameterization trick
-
-
-            # Auxiliary losses
-            y_hat = self.qy(zy_q)
-
             # Marginals
+            y_hat = y_hat.repeat(self.y_dim, 1)
             alpha_y = F.softmax(y_hat, dim=-1)
             qy = dist.OneHotCategorical(alpha_y)
+
             prob_qy = torch.exp(qy.log_prob(y_onehot))
 
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
@@ -278,17 +259,20 @@ class OurDIVA(nn.Module):
                    + self.aux_loss_multiplier_d * CE_d, 0
 
         else:  # supervised
-            x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y)
+            x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale) \
+                , zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
+            zy_p_loc, zy_p_scale = self.pzy(y)
 
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
-            zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
+            zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+            zy_p_minus_zy_q = OurDIVA.log_likelihood_dif(zy_q, zy_p_loc,zy_p_scale, zy_q_loc, zy_q_scale)
             if self.zx_dim != 0:
-                KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
+                zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
+                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_scale, zx_q_scale)
             else:
+                zx_p_loc, zx_p_scale = None, None
                 KL_zx = 0
-
-            zy_p_minus_zy_q = torch.sum(pzy.log_prob(zy_q) - qzy.log_prob(zy_q))
 
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
@@ -311,7 +295,8 @@ class OurDIVA(nn.Module):
         :return: a batch of the corresponding class labels (as one-hots)
         """
         with torch.no_grad():
-            zd_q_loc, zd_q_scale = self.qzd(x)
+            zd_q_loc, zd_q_scale, _, _, zy_q_loc, zy_q_scale = self.infer_latent(x, disable_qzx=True)
+
             zd = zd_q_loc
             alpha = F.softmax(self.qd(zd), dim=1)
 
@@ -323,7 +308,6 @@ class OurDIVA(nn.Module):
             d = x.new_zeros(alpha.size())
             d = d.scatter_(1, ind, 1.0)
 
-            zy_q_loc, zy_q_scale = self.qzy.forward(x)
             zy = zy_q_loc
             alpha = F.softmax(self.qy(zy), dim=1)
 
