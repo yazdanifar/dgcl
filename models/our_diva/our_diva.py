@@ -294,7 +294,7 @@ class OurDIVA(nn.Module):
             zd_q_loc, zd_q_scale, _, _, zy_q_loc, zy_q_scale = self.infer_latent(x, disable_qzx=True)
 
             zd = zd_q_loc
-            alpha = F.softmax(self.qd(zd), dim=1)
+            alpha = self.qd(zd)
 
             # get the index (digit) that corresponds to
             # the maximum predicted class probability
@@ -305,7 +305,7 @@ class OurDIVA(nn.Module):
             d = d.scatter_(1, ind, 1.0)
 
             zy = zy_q_loc
-            alpha = F.softmax(self.qy(zy), dim=1)
+            alpha = self.qy(zy)
 
             # get the index (digit) that corresponds to
             # the maximum predicted class probability
