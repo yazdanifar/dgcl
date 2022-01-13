@@ -221,7 +221,7 @@ class OurDIVA(nn.Module):
             zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
 
             if self.zx_dim != 0:
-                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_scale, zx_q_scale)
+                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
             else:
                 KL_zx = 0
 
@@ -265,7 +265,7 @@ class OurDIVA(nn.Module):
             zy_p_minus_zy_q = OurDIVA.log_likelihood_dif(zy_q, zy_p_loc,zy_p_scale, zy_q_loc, zy_q_scale)
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
-                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_scale, zx_q_scale)
+                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
             else:
                 zx_p_loc, zx_p_scale = None, None
                 KL_zx = 0
