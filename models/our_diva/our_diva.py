@@ -122,12 +122,14 @@ class OurDIVA(nn.Module):
 
     @staticmethod
     def log_likelihood_dif(point, mu1, std1, mu2, std2):
-        '''calculate in a differentiable was log p(point| mu1, std1)-log p(point| mu2, std2)'''
-        return torch.sum(torch.log(std2/std1)+(((point-mu2)/std2)**2 - ((point-mu1)/std1)**2 )/2)
+        '''calculate in a differentiable way log p(point| mu1, std1)-log p(point| mu2, std2)'''
+        return torch.sum(
+            torch.log(std2) - torch.log(std1) + (((point - mu2) / std2) ** 2 - ((point - mu1) / std1) ** 2) / 2)
 
     @staticmethod
     def kl_distribution(mu1, std1, mu2, std2):
         '''calculate in a differentiable KL (N(mu1,std1) || N(mu2, std2) all inputs are '''
+        torch.sum(torch.log(std2) - torch.log(std1) + (std1 ** 2 + (mu1 - mu2) ** 2)) / 2 * std2 ** 2
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
