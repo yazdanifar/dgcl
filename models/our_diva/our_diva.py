@@ -128,6 +128,7 @@ class OurDIVA(nn.Module):
     @staticmethod
     def kl_distribution(mu1, std1, mu2, std2):
         '''calculate in a differentiable KL (N(mu1,std1) || N(mu2, std2) all inputs are '''
+        torch.sum(torch.log(std2) - torch.log(std1) + (std1 ** 2 + (mu1 - mu2) ** 2)) / 2 * std2 ** 2
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
