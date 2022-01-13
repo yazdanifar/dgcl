@@ -236,17 +236,14 @@ class OurDIVA(nn.Module):
             zy_p_loc, zy_p_scale = self.pzy(y_onehot)
 
             # Marginals
-            y_hat = y_hat.repeat(self.y_dim, 1)
-            alpha_y = y_hat
-            qy = dist.OneHotCategorical(alpha_y)
-
-            prob_qy = torch.exp(qy.log_prob(y_onehot))
+            prob_qy = torch.exp(y_hat).t().reshape(-1)
 
             zy_p_minus_zy_q = torch.sum(torch.log(zy_q_scale/zy_p_scale)+(((zy_q-zy_q_loc)/zy_q_scale)**2 - ((zy_q-zy_p_loc)/zy_p_scale)**2 )/2, dim=1)
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
             prior_y = torch.tensor(1 / self.class_num, device=self.device)
-            prior_y_minus_qy = torch.log(prior_y) - qy.log_prob(y_onehot)
+
+            prior_y_minus_qy = torch.log(prior_y) - y_hat.t().reshape(-1)
             marginal_prior_y_minus_qy = torch.sum(prob_qy * prior_y_minus_qy)
             return CE_x \
                    - self.beta_d * zd_p_minus_zd_q \
