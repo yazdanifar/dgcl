@@ -97,7 +97,7 @@ def main():
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
         ],
-        schedule=torch.profiler.schedule(skip_first=97+data_scheduler.task_step[0]*5, wait=51, warmup=2, active=7, repeat=4),
+        schedule=torch.profiler.schedule(skip_first=17+data_scheduler.task_step[0]*5, wait=51, warmup=2, active=7, repeat=4),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(config['log_dir']),
         record_shapes=True,
         with_stack=True)

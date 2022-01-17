@@ -3,9 +3,9 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 50
+batch_size: 512
 num_workers: 2
-eval_batch_size: 100
+eval_batch_size: 512
 eval_num_workers: 2
 
 label_offset:
