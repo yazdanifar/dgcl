@@ -7,6 +7,7 @@ import psutil
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
@@ -53,6 +54,8 @@ def train_model(config, model,
                 scheduler: DataScheduler,
                 writer: SummaryWriter,
                 prof: torch.profiler.profile):
+    global projection_matrix
+    projection_matrix = torch.rand(size=(64, 2), device=config['device'])  # torch.eye(64, device=config['device'])  # #
 
     class_num = config['y_dim']
     domain_num = config['d_dim']
@@ -76,7 +79,7 @@ def train_model(config, model,
 
     prof.start()
 
-    print_times=config['print_times']
+    print_times = config['print_times']
     if print_times:
         end_time_ow = time.time()
 
@@ -101,8 +104,10 @@ def train_model(config, model,
             )
 
         task_changed = prev_t != t and prev_t is not None
-        stage_eval_step = config['eval_step'] if config['eval_step'] is not None else int(scheduler.task_step[t] / config['eval_per_task'])
-        summarize_step = config['summary_step'] if config['summary_step'] is not None else int(scheduler.task_step[t] / config['summary_per_task'])
+        stage_eval_step = config['eval_step'] if config['eval_step'] is not None else int(
+            scheduler.task_step[t] / config['eval_per_task'])
+        summarize_step = config['summary_step'] if config['summary_step'] is not None else int(
+            scheduler.task_step[t] / config['summary_per_task'])
 
         model_eval = (step % stage_eval_step == 5 and step > 5) or (
                 prev_t is None and config['initial_evaluation']) or (
@@ -124,8 +129,8 @@ def train_model(config, model,
             scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
             print("save reconstructions")
+            save_latent_variable(model, scheduler, writer, step)
             save_reconstructions(prev_model, model, scheduler, writer, step, t)
-
 
         # to device
         x, d = x.to(device), d.to(device)
@@ -145,7 +150,7 @@ def train_model(config, model,
         loss, class_y_loss = model.loss_function(d, x, y)
         loss.backward()
         optimizer.step()
-        prof.step() # after training on original data
+        prof.step()  # after training on original data
 
         with torch.no_grad():
             sum_loss += loss
@@ -153,7 +158,6 @@ def train_model(config, model,
 
             train_loss += loss
             epoch_class_y_loss += class_y_loss
-
 
         end_time = time.time()
         sum_time = (end_time - start_time)
@@ -166,9 +170,9 @@ def train_model(config, model,
                 if print_times:
                     start_time = time.time()
 
-                prof.step() # start generating data
+                prof.step()  # start generating data
                 generated = prev_model.generate_replay_batch(config['replay_batch_size'])
-                prof.step() # end generating data/start learning from it
+                prof.step()  # end generating data/start learning from it
                 if not generated:
                     continue
                 x, y, d = generated
@@ -183,7 +187,7 @@ def train_model(config, model,
                 replay_loss *= config['replay_loss_multiplier']
                 replay_loss.backward()
                 optimizer.step()
-                prof.step() # end learning from generated data
+                prof.step()  # end learning from generated data
                 if print_times:
                     end_time = time.time()
                     sum_time += (end_time - start_time)
@@ -237,6 +241,91 @@ def show_batch(dd, xx, y, t):
         plt.show()
 
 
+def project_to_2d(loc):
+    return torch.matmul(loc, projection_matrix[:loc.size(1)]).cpu().numpy()
+
+
+def plot_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader, domain_id, subplotnum):
+    with torch.no_grad():
+        # use the right data loader
+        y_eye = torch.eye(scheduler.class_num, device=scheduler.device)
+        d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
+        for step, (x, y, d) in enumerate(data_loader):
+            if step > 2:
+                break
+            # To device
+            x, y, d = x.to(scheduler.device), y.to(scheduler.device), d.to(scheduler.device)
+
+            # Convert to onehot
+            d_onehot = d_eye[d]
+            y_onehot = y_eye[y]
+
+            _, d_hat, y_hat, (_, _), (zd_p_loc, _), zd_q, (_, _) \
+                , zx_q, (_, _), zy_q = model(d_onehot, x)
+            zy_p_loc, _ = model.pzy(y_onehot)
+            zy_q = project_to_2d(zy_q)
+            zy_p = project_to_2d(zy_p_loc)
+            zd_q = project_to_2d(zd_q)
+            zd_p = project_to_2d(zd_p_loc)
+            plt.figure(domain_id)
+            plt.scatter(x=zy_p[:, 0], y=zy_p[:, 1], c=y.cpu().float().numpy(),
+                        s=np.ones(zy_p_loc.size(0)) * 250, cmap=plt.cm.tab20, vmin=0, vmax=model.y_dim - 1)
+            plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                        vmax=model.y_dim - 1)
+
+            plt.figure(subplotnum - 3)
+            plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                        vmax=model.d_dim - 1)
+
+            plt.figure(subplotnum - 2)
+            plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                        vmax=model.d_dim - 1)
+            plt.scatter(x=zd_p[:, 0], y=zd_p[:, 1], c=d.cpu().float().numpy(), s=np.ones(zy_p_loc.size(0)) * 250,
+                        cmap=plt.cm.tab20, vmin=0, vmax=model.d_dim - 1)
+
+            plt.figure(subplotnum - 1)
+            plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                        vmax=model.y_dim - 1)
+
+
+def save_latent_variable(model, scheduler: DataScheduler, writer: SummaryWriter, step):
+    subplotnum = 3 + len(scheduler.eval_data_loaders)
+
+    ############set title
+    for domain_id in range(len(scheduler.eval_data_loaders)):
+        plt.figure(domain_id)
+        plt.clf()
+        plt.title(f"class latent of domain {domain_id}")
+    plt.figure(subplotnum - 3)
+    plt.clf()
+    plt.title("class latent, color=domain")
+    plt.figure(subplotnum - 2)
+    plt.clf()
+    plt.title("domain latent, color=domain")
+    plt.figure(subplotnum - 1)
+    plt.clf()
+    plt.title("domain latent, color=class")
+    ##############
+
+    for i, eval_related in enumerate(scheduler.eval_data_loaders):
+        eval_data_loader, description, start_from = eval_related
+        if scheduler.stage >= start_from:
+            plot_latent_variable(model, scheduler, eval_data_loader, i, subplotnum)
+
+    for domain_id in range(len(scheduler.eval_data_loaders)):
+        fig = plt.figure(domain_id)
+        writer.add_figure(f"class_latent_domain/{domain_id}", fig, step)
+
+    fig = plt.figure(subplotnum - 3)
+    writer.add_figure('class_latent_color_domain', fig, step)
+
+    fig = plt.figure(subplotnum - 2)
+    writer.add_figure('domain_latent_color_domain', fig, step)
+
+    fig = plt.figure(subplotnum - 1)
+    writer.add_figure('domain_latent_color_class', fig, step)
+
+
 def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, step, task_number):
     # Save reconstuction
     model.eval()
@@ -245,7 +334,6 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
         if generated:
             x, y, d = generated
             for i in torch.unique(d):
-
                 img = x[d == i]
                 img = img.detach()
                 writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), img, step)
