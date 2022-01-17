@@ -324,7 +324,7 @@ class DataScheduler(Iterator):
             # use the right data loader
             y_eye = torch.eye(self.class_num, device=self.device)
             d_eye = torch.eye(self.domain_num, device=self.device)
-            for (xs, ys, ds) in data_loader:
+            for step, (xs, ys, ds) in enumerate(data_loader):
                 # To device
                 xs, ys, ds = xs.to(self.device), ys.to(self.device), ds.to(self.device)
 
