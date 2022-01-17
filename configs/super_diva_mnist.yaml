@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 50
-num_workers: 3
+num_workers: 2
 eval_batch_size: 100
-eval_num_workers: 3
+eval_num_workers: 2
 
 label_offset:
   mnist: 0
@@ -40,8 +40,8 @@ eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task:
-summary_step: 1000
+summary_per_task: 6
+summary_step:
 summarize_samples: True
 
 training_loss_step: 10
@@ -71,7 +71,7 @@ model:
 
   zd_dim: 64
   zx_dim: 64
-  zy_dim: 64
+  zy_dim: 2
 
   # Aux multipliers
   aux_loss_multiplier_y: 3500
@@ -80,7 +80,7 @@ model:
   # Beta VAE part
   beta_d: 1
   beta_x: 1
-  beta_y: 1
+  beta_y: 300
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')
