@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import datetime
 import shutil
+import random
 from argparse import ArgumentParser
 import os
 import yaml
@@ -31,6 +32,10 @@ parser.add_argument('--override', default='')
 
 
 def main():
+    seed=0
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
     args = parser.parse_args()
 
     # Load config
