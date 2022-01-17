@@ -246,84 +246,95 @@ def project_to_2d(loc):
 
 
 def plot_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader, domain_id, subplotnum):
-    with torch.no_grad():
-        # use the right data loader
-        y_eye = torch.eye(scheduler.class_num, device=scheduler.device)
-        d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
-        for step, (x, y, d) in enumerate(data_loader):
-            if step > 2:
-                break
-            # To device
-            x, y, d = x.to(scheduler.device), y.to(scheduler.device), d.to(scheduler.device)
+    # use the right data loader
+    y_eye = torch.eye(scheduler.class_num, device=scheduler.device)
+    d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
 
-            # Convert to onehot
-            d_onehot = d_eye[d]
-            y_onehot = y_eye[y]
+    for step, (x, y, d) in enumerate(data_loader):
+        if step > 2:
+            break
+        # To device
+        x, y, d = x.to(scheduler.device), y.to(scheduler.device), d.to(scheduler.device)
 
-            _, d_hat, y_hat, (_, _), (zd_p_loc, _), zd_q, (_, _) \
-                , zx_q, (_, _), zy_q = model(d_onehot, x)
-            zy_p_loc, _ = model.pzy(y_onehot)
-            zy_q = project_to_2d(zy_q)
-            zy_p = project_to_2d(zy_p_loc)
-            zd_q = project_to_2d(zd_q)
-            zd_p = project_to_2d(zd_p_loc)
-            plt.figure(domain_id)
-            plt.scatter(x=zy_p[:, 0], y=zy_p[:, 1], c=y.cpu().float().numpy(),
-                        s=np.ones(zy_p_loc.size(0)) * 250, cmap=plt.cm.tab20, vmin=0, vmax=model.y_dim - 1)
-            plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
-                        vmax=model.y_dim - 1)
+        # Convert to onehot
+        d_onehot = d_eye[d]
+        y_onehot = y_eye[y]
 
-            plt.figure(subplotnum - 3)
-            plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
-                        vmax=model.d_dim - 1)
+        _, d_hat, y_hat, (_, _), (zd_p_loc, _), zd_q, (_, _) \
+            , zx_q, (_, _), zy_q = model(d_onehot, x)
+        zy_p_loc, _ = model.pzy(y_onehot)
+        zy_q = project_to_2d(zy_q)
+        zy_p = project_to_2d(zy_p_loc)
+        zd_q = project_to_2d(zd_q)
 
-            plt.figure(subplotnum - 2)
-            plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
-                        vmax=model.d_dim - 1)
-            plt.scatter(x=zd_p[:, 0], y=zd_p[:, 1], c=d.cpu().float().numpy(), s=np.ones(zy_p_loc.size(0)) * 250,
-                        cmap=plt.cm.tab20, vmin=0, vmax=model.d_dim - 1)
+        plt.figure(domain_id)
+        plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                    vmax=model.y_dim - 1)
+        plt.scatter(x=zy_p[:, 0], y=zy_p[:, 1], c=y.cpu().float().numpy(), s=np.ones(zy_p_loc.size(0)) * 200,
+                    cmap=plt.cm.tab20, vmin=0, vmax=model.y_dim - 1, marker='X', edgecolors='black')
 
-            plt.figure(subplotnum - 1)
-            plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
-                        vmax=model.y_dim - 1)
+        plt.figure(subplotnum - 3)
+        plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                    vmax=model.d_dim - 1)
+
+        plt.figure(subplotnum - 2)
+        plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=d.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                    vmax=model.d_dim - 1)
+
+        plt.figure(subplotnum - 1)
+        plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=y.cpu().float().numpy(), cmap=plt.cm.tab20, vmin=0,
+                    vmax=model.y_dim - 1)
 
 
 def save_latent_variable(model, scheduler: DataScheduler, writer: SummaryWriter, step):
-    subplotnum = 3 + len(scheduler.eval_data_loaders)
+    with torch.no_grad():
+        subplotnum = 3 + len(scheduler.eval_data_loaders)
 
-    ############set title
-    for domain_id in range(len(scheduler.eval_data_loaders)):
-        plt.figure(domain_id)
+        ############set title
+        for domain_id in range(len(scheduler.eval_data_loaders)):
+            plt.figure(domain_id)
+            plt.clf()
+            plt.title(f"class latent of domain {domain_id}")
+        plt.figure(subplotnum - 3)
         plt.clf()
-        plt.title(f"class latent of domain {domain_id}")
-    plt.figure(subplotnum - 3)
-    plt.clf()
-    plt.title("class latent, color=domain")
-    plt.figure(subplotnum - 2)
-    plt.clf()
-    plt.title("domain latent, color=domain")
-    plt.figure(subplotnum - 1)
-    plt.clf()
-    plt.title("domain latent, color=class")
-    ##############
+        plt.title("class latent, color=domain")
+        plt.figure(subplotnum - 2)
+        plt.clf()
+        plt.title("domain latent, color=domain")
+        plt.figure(subplotnum - 1)
+        plt.clf()
+        plt.title("domain latent, color=class")
+        ##############
 
-    for i, eval_related in enumerate(scheduler.eval_data_loaders):
-        eval_data_loader, description, start_from = eval_related
-        if scheduler.stage >= start_from:
-            plot_latent_variable(model, scheduler, eval_data_loader, i, subplotnum)
+        for i, eval_related in enumerate(scheduler.eval_data_loaders):
+            eval_data_loader, description, start_from = eval_related
+            if scheduler.stage >= start_from:
+                plot_latent_variable(model, scheduler, eval_data_loader, i, subplotnum)
 
-    for domain_id in range(len(scheduler.eval_data_loaders)):
-        fig = plt.figure(domain_id)
-        writer.add_figure(f"class_latent_domain/{domain_id}", fig, step)
+        #########################################
+        # domain prior zd
+        plt.figure(subplotnum - 2)
+        d = torch.arange(0, model.d_dim, device=scheduler.device)
+        d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
+        d_onehot = d_eye[d]
+        zd_p_loc, _ = model.pzd(d_onehot)
+        zd_p = project_to_2d(zd_p_loc)
+        plt.scatter(x=zd_p[:, 0], y=zd_p[:, 1], c=d.cpu().float().numpy(), s=np.ones(zd_p_loc.size(0)) * 200,
+                    cmap=plt.cm.tab20, vmin=0, vmax=model.d_dim - 1, marker='X', edgecolors='black')
+        #########################################
 
-    fig = plt.figure(subplotnum - 3)
-    writer.add_figure('class_latent_color_domain', fig, step)
+        for domain_id in range(len(scheduler.eval_data_loaders)):
+            fig = plt.figure(domain_id)
+            writer.add_figure(f"zy_per_domain/{domain_id}", fig, step)
 
-    fig = plt.figure(subplotnum - 2)
-    writer.add_figure('domain_latent_color_domain', fig, step)
+        fig = plt.figure(subplotnum - 3)
+        writer.add_figure('zy_domain_color', fig, step)
 
-    fig = plt.figure(subplotnum - 1)
-    writer.add_figure('domain_latent_color_class', fig, step)
+        fig = plt.figure(subplotnum - 2)
+        writer.add_figure('zd_domain_color', fig, step)
+
+        fig = plt.figure(subplotnum - 1)
+        writer.add_figure('zd_class_color', fig, step)
 
 
 def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, step, task_number):
