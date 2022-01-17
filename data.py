@@ -302,13 +302,13 @@ class DataScheduler(Iterator):
         big_dataset = ConcatDataset(subsets)
 
         # for evaluation no sampler is needed
-
+        test_sampler = RandomSampler(big_dataset)
         eval_data_loader = DataLoader(
             big_dataset,
             batch_size=self.config['eval_batch_size'],
             num_workers=self.config['eval_num_workers'],
             collate_fn=collate_fn,
-            sampler=None,
+            sampler=test_sampler,
             drop_last=True,
             pin_memory=True
         )
