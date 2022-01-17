@@ -69,6 +69,7 @@ class DataScheduler(Iterator):
                 stage_total = stage_total // config['batch_size']
 
             self.total_step += stage_total
+            print("task batches:",stage_total)
             self.task_step.append(stage_total)
 
         # Prepare testing datasets
@@ -252,7 +253,7 @@ class DataScheduler(Iterator):
                     collate_fn=collate_fn,
                     sampler=sup_sampler,
                     drop_last=True,
-                    pin_memory=False
+                    pin_memory=True
                 ))
             if unsup_dataset is not None:
                 self.unsup_iterator = iter(DataLoader(

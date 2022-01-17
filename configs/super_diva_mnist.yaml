@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 50
-num_workers: 1
+num_workers: 3
 eval_batch_size: 100
-eval_num_workers: 1
+eval_num_workers: 3
 
 label_offset:
   mnist: 0
@@ -26,7 +26,7 @@ d_dim: 6
 device: 'cuda'
 testing_mode: True
 model_name: 'OurDIVA'
-recon_loss: 'bernoulli'
+recon_loss: 'bernouiiilli'
 
 ###########
 # Summary #
@@ -40,8 +40,8 @@ eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 3
-summary_step:
+summary_per_task:
+summary_step: 1000
 summarize_samples: True
 
 training_loss_step: 10

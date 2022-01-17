@@ -126,13 +126,13 @@ def train_model(config, model,
             print("save reconstructions")
             save_reconstructions(prev_model, model, scheduler, writer, step, t)
 
-        prof.step() # after loading data
+
         # to device
         x, d = x.to(device), d.to(device)
         if y is not None:
             y = y.to(device)
         # Train the model
-
+        prof.step()  # after loading data
         # Convert to onehot
         if y is not None:
             y = y_eye[y]

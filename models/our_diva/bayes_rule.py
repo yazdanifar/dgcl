@@ -10,13 +10,17 @@ class BayesRule(nn.Module):
         self.posterior_dim = posterior_dim
         self.device = device
 
+    @staticmethod
+    def scaled_log_prob(point, mu, std):
+        ''' return log p(point| mu,std) . constant'''
+        return -torch.log(std)-(((point-mu)/std)**2)/2
+
     def forward(self, zd: torch.Tensor):
         d_one_eye = torch.eye(self.posterior_dim, device=self.device)
         zd_r = zd.repeat(self.posterior_dim, 1)
         d_one_eye_r = d_one_eye.repeat(1, zd.shape[0]).view(-1, self.posterior_dim)
         zd_p_loc, zd_p_scale = self.likelihood(d_one_eye_r)
-        pz = dist.Normal(zd_p_loc, zd_p_scale)
-        prob = pz.log_prob(zd_r)
+        prob=BayesRule.scaled_log_prob(zd_r, zd_p_loc, zd_p_scale)
         prob = torch.sum(prob, dim=1)
         prob = torch.t(prob.view(self.posterior_dim, -1))
         max_prob = torch.max(prob, dim=1).values
