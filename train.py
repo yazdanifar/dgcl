@@ -347,7 +347,7 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
             for i in torch.unique(d):
                 img = x[d == i]
                 img = img.detach()
-                writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i), img, step)
+                writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i.item()), img, step)
 
         all_classes = []
         for i in range(scheduler.stage + 1):
