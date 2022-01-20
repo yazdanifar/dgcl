@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
-from sklearn.decomposition import PCA
+from sklearn import decomposition
 
 
 def show_batch(dd, xx, y, t):
@@ -23,10 +23,19 @@ def show_batch(dd, xx, y, t):
         plt.show()
 
 
-def project_to_2d(loc):
-    pca = PCA(n_components=2)
-    principalComponents = pca.fit_transform(loc.cpu().numpy())
-    return principalComponents
+def project_to_2d(loc, based_on=None):
+    pca = decomposition.PCA(n_components=2)
+    cpuloc = loc.cpu().numpy()
+    if based_on is None:
+        pca.fit(cpuloc)
+    else:
+        pca.fit(cpuloc[:based_on])
+    return pca.transform(cpuloc)
+
+    # pca = PCA(n_components=2)
+    # principalComponents = pca.fit_transform(loc.cpu().numpy())
+    # return principalComponents
+
     # return torch.matmul(loc, projection_matrix[:loc.size(1)]).cpu().numpy()
 
 
@@ -100,7 +109,7 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
                 all_d.append(d)
 
                 plt.figure(i)
-                zy = project_to_2d(torch.cat([zy_q, zy_p], dim=0))
+                zy = project_to_2d(torch.cat([zy_q, zy_p], dim=0), based_on=zy_q.shape[0])
 
                 zy_q = zy[:zy.shape[0] // 2]
                 zy_p = zy[zy.shape[0] // 2:]
@@ -128,8 +137,11 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
 
         y = torch.cat(all_y, dim=0).cpu().numpy()
         d = torch.cat(all_d, dim=0).cpu().numpy()
-        zy = project_to_2d(torch.cat(all_zy_q + all_zy_p, dim=0))
-        zd = project_to_2d(torch.cat(all_zd_q + all_zd_p, dim=0))
+
+        zy=torch.cat(all_zy_q + all_zy_p, dim=0)
+        zd=torch.cat(all_zd_q + all_zd_p, dim=0)
+        zy = project_to_2d(zy, based_on=(zy.shape[0] // 2) - gen_size)
+        zd = project_to_2d(zd, based_on=zd.shape[0] // 2 - gen_size)
 
         if gen_size > 0:
             zy_q = zy[:(zy.shape[0] // 2) - gen_size]
@@ -141,7 +153,7 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
             org_d = d[:-gen_size]
 
             gen_y = y[-gen_size:]
-            org_y= y[:-gen_size]
+            org_y = y[:-gen_size]
         else:
             zy_q = zy[:(zy.shape[0] // 2)]
             zy_p = zy[zy.shape[0] // 2:]
@@ -149,7 +161,7 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
             gen_zd_q = zd[zd.shape[0] // 2: zd.shape[0] // 2]
             zd_p = zd[zd.shape[0] // 2:]
             org_d = d
-            org_y=y
+            org_y = y
 
         plt.figure(subplotnum - 3)
         scatter = plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=org_d, cmap=plt.cm.tab20, vmin=0,
@@ -172,7 +184,6 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
 
         plt.scatter(x=zd_p[:, 0], y=zd_p[:, 1], c=org_d, s=np.ones(zd_p.shape[0]) * 200,
                     cmap=plt.cm.tab20, vmin=0, vmax=model.d_dim, marker='X', edgecolors='black')
-
 
         plt.figure(subplotnum - 1)
         plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=org_y, cmap=plt.cm.tab20, vmin=0,

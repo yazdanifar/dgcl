@@ -67,7 +67,7 @@ model:
   description: 'TwoTaskVae'
   no-cuda: False
   seed: 0
-  lr: 0.01
+  lr: 0.001
 
   zd_dim: 64
   zx_dim: 64
