@@ -325,14 +325,18 @@ def save_latent_variable(model, scheduler: DataScheduler, writer: SummaryWriter,
         zd_p = zd[zd.shape[0] // 2:]
 
         plt.figure(subplotnum - 3)
-        plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=d, cmap=plt.cm.tab20, vmin=0,
-                    vmax=model.d_dim - 1)
+        scatter = plt.scatter(x=zy_q[:, 0], y=zy_q[:, 1], c=d, cmap=plt.cm.tab20, vmin=0,
+                              vmax=model.d_dim - 1)
+        legend1 = plt.legend(*scatter.legend_elements(), loc="upper right", title="Domains")
+        plt.gca().add_artist(legend1)
 
         plt.figure(subplotnum - 2)
-        plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=d, cmap=plt.cm.tab20, vmin=0,
-                    vmax=model.d_dim - 1)
+        scatter = plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=d, cmap=plt.cm.tab20, vmin=0,
+                              vmax=model.d_dim - 1)
         plt.scatter(x=zd_p[:, 0], y=zd_p[:, 1], c=d, s=np.ones(zd_p.shape[0]) * 200,
                     cmap=plt.cm.tab20, vmin=0, vmax=model.d_dim - 1, marker='X', edgecolors='black')
+        legend1 = plt.legend(*scatter.legend_elements(), loc="upper right", title="Domains")
+        plt.gca().add_artist(legend1)
 
         plt.figure(subplotnum - 1)
         plt.scatter(x=zd_q[:, 0], y=zd_q[:, 1], c=y, cmap=plt.cm.tab20, vmin=0,
