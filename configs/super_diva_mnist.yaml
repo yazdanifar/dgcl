@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 512
+batch_size: 256
 num_workers: 2
 eval_batch_size: 1024
 eval_num_workers: 2
@@ -50,7 +50,7 @@ training_loss_step: 10
 # Replay #
 ##########
 enable_replay: True
-replay_batch_size: 128
+replay_batch_size: 256
 replay_ratio: 1
 replay_loss_multiplier: 1
 equal_loss_scale: False
@@ -67,11 +67,11 @@ model:
   description: 'TwoTaskVae'
   no-cuda: False
   seed: 0
-  lr: 0.001
+  lr: 0.01
 
   zd_dim: 64
   zx_dim: 64
-  zy_dim: 2
+  zy_dim: 64
 
   # Aux multipliers
   aux_loss_multiplier_y: 3500
