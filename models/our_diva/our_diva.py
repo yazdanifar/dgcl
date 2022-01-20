@@ -105,6 +105,8 @@ class OurDIVA(nn.Module):
         self.beta_x = model_config['beta_x']
         self.beta_y = model_config['beta_y']
 
+        self.use_KL_close=True
+
     def generate_replay_batch(self, batch_size):
         if not torch.any(self.learned_domain):
             return None
@@ -160,13 +162,12 @@ class OurDIVA(nn.Module):
 
         zy_p = OurDIVA.reparameterize(zy_p_loc, zy_p_scale)
 
-
         x_recon = self.px(zd_p, zx_p, zy_p)
 
         return x_recon
 
     def forward(self, d, x):
-        zd_q_loc, zd_q_scale, zx_q_loc,zx_q_scale, zy_q_loc, zy_q_scale =self.infer_latent(x)
+        zd_q_loc, zd_q_scale, zx_q_loc, zx_q_scale, zy_q_loc, zy_q_scale = self.infer_latent(x)
 
         # Reparameterization trick
         zd_q = OurDIVA.reparameterize(zd_q_loc, zd_q_scale)
@@ -175,7 +176,7 @@ class OurDIVA(nn.Module):
         else:
             zx_q = None
 
-        zy_q=OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
+        zy_q = OurDIVA.reparameterize(zy_q_loc, zy_q_scale)
 
         # Decode
         x_recon = self.px(zd_q, zx_q, zy_q)
@@ -186,10 +187,10 @@ class OurDIVA(nn.Module):
         d_hat = self.qd(zd_q)
         y_hat = self.qy(zy_q)
 
-        return x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale)\
+        return x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale) \
             , zx_q, (zy_q_loc, zy_q_scale), zy_q
 
-    def infer_latent(self, x,disable_qzx=False):
+    def infer_latent(self, x, disable_qzx=False):
         # Encode
         zd_q_loc, zd_q_scale = self.qzd(x)
         if self.zx_dim != 0 and not disable_qzx:
@@ -197,11 +198,11 @@ class OurDIVA(nn.Module):
         else:
             zx_q_loc, zx_q_scale = None, None
         zy_q_loc, zy_q_scale = self.qzy(x)
-        return zd_q_loc, zd_q_scale, zx_q_loc,zx_q_scale, zy_q_loc, zy_q_scale
+        return zd_q_loc, zd_q_scale, zx_q_loc, zx_q_scale, zy_q_loc, zy_q_scale
 
     def prior_px(self, batch_size):
         zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), \
-                                   torch.ones(batch_size, self.zx_dim, device=self.device)
+                               torch.ones(batch_size, self.zx_dim, device=self.device)
 
         return zx_p_loc, zx_p_scale
 
@@ -210,7 +211,7 @@ class OurDIVA(nn.Module):
             # Do standard forward pass for everything not involving y
             batch_size = d.shape[0]
             x_recon, d_hat, y_hat, (zd_q_loc, zd_q_scale), (zd_p_loc, zd_p_scale), zd_q, (zx_q_loc, zx_q_scale) \
-                ,zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
+                , zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
 
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
@@ -218,12 +219,21 @@ class OurDIVA(nn.Module):
                 zx_p_loc, zx_p_scale = None, None
 
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
-            zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
 
-            if self.zx_dim != 0:
-                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+            if self.use_KL_close:
+                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+
+                if self.zx_dim != 0:
+                    KL_zx = OurDIVA.kl_distribution(zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                else:
+                    KL_zx = 0
             else:
-                KL_zx = 0
+                zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+
+                if self.zx_dim != 0:
+                    KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                else:
+                    KL_zx = 0
 
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
@@ -242,7 +252,8 @@ class OurDIVA(nn.Module):
             # Marginals
             prob_qy = torch.exp(y_hat).t().reshape(-1)
 
-            zy_p_minus_zy_q = torch.sum(torch.log(zy_q_scale)-torch.log(zy_p_scale)+(((zy_q-zy_q_loc)/zy_q_scale)**2 - ((zy_q-zy_p_loc)/zy_p_scale)**2 )/2, dim=1)
+            zy_p_minus_zy_q = torch.sum(torch.log(zy_q_scale) - torch.log(zy_p_scale) + (
+                        ((zy_q - zy_q_loc) / zy_q_scale) ** 2 - ((zy_q - zy_p_loc) / zy_p_scale) ** 2) / 2, dim=1)
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
             prior_y_minus_qy = -math.log(self.class_num) - y_hat.t().reshape(-1)
@@ -261,14 +272,24 @@ class OurDIVA(nn.Module):
 
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
-            zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
-            zy_p_minus_zy_q = OurDIVA.log_likelihood_dif(zy_q, zy_p_loc,zy_p_scale, zy_q_loc, zy_q_scale)
-            if self.zx_dim != 0:
-                zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
-                KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+            if self.use_KL_close:
+                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+                zy_p_minus_zy_q = OurDIVA.kl_distribution(zy_p_loc, zy_p_scale, zy_q_loc, zy_q_scale)
+                if self.zx_dim != 0:
+                    zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
+                    KL_zx = OurDIVA.kl_distribution(zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                else:
+                    zx_p_loc, zx_p_scale = None, None
+                    KL_zx = 0
             else:
-                zx_p_loc, zx_p_scale = None, None
-                KL_zx = 0
+                zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+                zy_p_minus_zy_q = OurDIVA.log_likelihood_dif(zy_q, zy_p_loc, zy_p_scale, zy_q_loc, zy_q_scale)
+                if self.zx_dim != 0:
+                    zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
+                    KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                else:
+                    zx_p_loc, zx_p_scale = None, None
+                    KL_zx = 0
 
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
