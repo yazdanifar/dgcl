@@ -5,7 +5,7 @@
 data_root: 'data_files'
 batch_size: 512
 num_workers: 2
-eval_batch_size: 512
+eval_batch_size: 1024
 eval_num_workers: 2
 
 label_offset:
@@ -50,7 +50,7 @@ training_loss_step: 10
 # Replay #
 ##########
 enable_replay: True
-replay_batch_size: 50
+replay_batch_size: 128
 replay_ratio: 1
 replay_loss_multiplier: 1
 equal_loss_scale: False
