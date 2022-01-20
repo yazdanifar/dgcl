@@ -80,7 +80,7 @@ model:
   # Beta VAE part
   beta_d: 1
   beta_x: 1
-  beta_y: 300
+  beta_y: 1
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')
