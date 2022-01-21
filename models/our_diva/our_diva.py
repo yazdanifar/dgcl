@@ -105,7 +105,7 @@ class OurDIVA(nn.Module):
         self.beta_x = model_config['beta_x']
         self.beta_y = model_config['beta_y']
 
-        self.use_KL_close=True
+        self.use_KL_close = True
 
     def generate_replay_batch(self, batch_size):
         if not torch.any(self.learned_domain):
@@ -133,7 +133,7 @@ class OurDIVA(nn.Module):
     @staticmethod
     def kl_distribution(mu1, std1, mu2, std2):
         '''calculate in a differentiable KL (N(mu1,std1) || N(mu2, std2) all inputs are '''
-        torch.sum(torch.log(std2) - torch.log(std1) + (std1 ** 2 + (mu1 - mu2) ** 2)) / 2 * std2 ** 2
+        return torch.sum((torch.log(std2) - torch.log(std1)) + ((std1 ** 2 + (mu1 - mu2) ** 2) / (2 * std2 ** 2)) - 0.5)
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
@@ -221,10 +221,10 @@ class OurDIVA(nn.Module):
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
             if self.use_KL_close:
-                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
+                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
 
                 if self.zx_dim != 0:
-                    KL_zx = OurDIVA.kl_distribution(zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                    KL_zx = OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
                 else:
                     KL_zx = 0
             else:
@@ -253,7 +253,7 @@ class OurDIVA(nn.Module):
             prob_qy = torch.exp(y_hat).t().reshape(-1)
 
             zy_p_minus_zy_q = torch.sum(torch.log(zy_q_scale) - torch.log(zy_p_scale) + (
-                        ((zy_q - zy_q_loc) / zy_q_scale) ** 2 - ((zy_q - zy_p_loc) / zy_p_scale) ** 2) / 2, dim=1)
+                    ((zy_q - zy_q_loc) / zy_q_scale) ** 2 - ((zy_q - zy_p_loc) / zy_p_scale) ** 2) / 2, dim=1)
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
             prior_y_minus_qy = -math.log(self.class_num) - y_hat.t().reshape(-1)
@@ -273,17 +273,18 @@ class OurDIVA(nn.Module):
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
             if self.use_KL_close:
-                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
-                zy_p_minus_zy_q = OurDIVA.kl_distribution(zy_p_loc, zy_p_scale, zy_q_loc, zy_q_scale)
+                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
+                zy_p_minus_zy_q = OurDIVA.kl_distribution(zy_q_loc, zy_q_scale, zy_p_loc, zy_p_scale)
                 if self.zx_dim != 0:
                     zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
-                    KL_zx = OurDIVA.kl_distribution(zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
+                    KL_zx = OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
                 else:
                     zx_p_loc, zx_p_scale = None, None
                     KL_zx = 0
             else:
                 zd_p_minus_zd_q = OurDIVA.log_likelihood_dif(zd_q, zd_p_loc, zd_p_scale, zd_q_loc, zd_q_scale)
                 zy_p_minus_zy_q = OurDIVA.log_likelihood_dif(zy_q, zy_p_loc, zy_p_scale, zy_q_loc, zy_q_scale)
+
                 if self.zx_dim != 0:
                     zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
                     KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
