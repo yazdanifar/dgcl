@@ -36,6 +36,15 @@ class FreezablePzy(FreezableConditionalPrior):
         return grad
 
 
+class LinearClassifier(nn.Module):
+    def __init__(self, input_dim, class_num):
+        super(LinearClassifier, self).__init__()
+        self.net = nn.Sequential(nn.Linear(input_dim, class_num), nn.Softmax(dim=1))
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class Qzd(Encoder):
     def __init__(self, x_dim, zd_dim):
         super(Qzd, self).__init__(x_dim, zd_dim, 2000, 2000)
@@ -67,6 +76,8 @@ class OurDIVA(nn.Module):
         super(OurDIVA, self).__init__()
         self.name = "OurDIVA"
         self.device = device
+        self.use_KL_close = True
+        self.use_bayes = False
 
         model_config = args['model']
         self.zd_dim = model_config['zd_dim']
@@ -95,8 +106,12 @@ class OurDIVA(nn.Module):
             self.qzx = Qzx(self.x_dim, self.zx_dim)
         self.qzy = Qzy(self.x_dim, self.zy_dim)
 
-        self.qd = Qd(self.d_dim, self.pzd, self.device)
-        self.qy = Qy(self.y_dim, self.pzy, self.device)
+        if self.use_bayes:
+            self.qd = Qd(self.d_dim, self.pzd, self.device)
+            self.qy = Qy(self.y_dim, self.pzy, self.device)
+        else:
+            self.qd = LinearClassifier(self.zd_dim, self.d_dim)
+            self.qy = LinearClassifier(self.zy_dim, self.y_dim)
 
         self.aux_loss_multiplier_y = model_config['aux_loss_multiplier_y']
         self.aux_loss_multiplier_d = model_config['aux_loss_multiplier_d']
@@ -104,8 +119,6 @@ class OurDIVA(nn.Module):
         self.beta_d = model_config['beta_d']
         self.beta_x = model_config['beta_x']
         self.beta_y = model_config['beta_y']
-
-        self.use_KL_close = True
 
     def generate_replay_batch(self, batch_size):
         if not torch.any(self.learned_domain):
@@ -234,7 +247,6 @@ class OurDIVA(nn.Module):
                     KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
                 else:
                     KL_zx = 0
-
 
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
