@@ -221,10 +221,10 @@ class OurDIVA(nn.Module):
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
             if self.use_KL_close:
-                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
+                zd_p_minus_zd_q = -OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
 
                 if self.zx_dim != 0:
-                    KL_zx = OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
+                    KL_zx = -OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
                 else:
                     KL_zx = 0
             else:
@@ -234,6 +234,7 @@ class OurDIVA(nn.Module):
                     KL_zx = OurDIVA.log_likelihood_dif(zx_q, zx_p_loc, zx_p_scale, zx_q_loc, zx_q_scale)
                 else:
                     KL_zx = 0
+
 
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
@@ -273,11 +274,11 @@ class OurDIVA(nn.Module):
             CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
 
             if self.use_KL_close:
-                zd_p_minus_zd_q = OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
-                zy_p_minus_zy_q = OurDIVA.kl_distribution(zy_q_loc, zy_q_scale, zy_p_loc, zy_p_scale)
+                zd_p_minus_zd_q = -OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
+                zy_p_minus_zy_q = -OurDIVA.kl_distribution(zy_q_loc, zy_q_scale, zy_p_loc, zy_p_scale)
                 if self.zx_dim != 0:
                     zx_p_loc, zx_p_scale = self.prior_px(zd_p_loc.size()[0])
-                    KL_zx = OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
+                    KL_zx = -OurDIVA.kl_distribution(zx_q_loc, zx_q_scale, zx_p_loc, zx_p_scale)
                 else:
                     zx_p_loc, zx_p_scale = None, None
                     KL_zx = 0
