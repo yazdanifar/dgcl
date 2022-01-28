@@ -36,6 +36,24 @@ class FreezablePzy(FreezableConditionalPrior):
         return grad
 
 
+class FreezableLinearClassifier(nn.Module):
+    def __init__(self, input_dim, class_num, learned_domain):
+        super(FreezableLinearClassifier, self).__init__()
+        self.linear_layer = nn.Linear(input_dim, class_num)
+        self.learned_domain = learned_domain
+        self.net = nn.Sequential(self.linear_layer, nn.Softmax(dim=1))
+
+        self.linear_layer.weight.register_hook(self.freeze_grad_hook)
+
+    def freeze_grad_hook(self, grad):
+        mask = torch.unsqueeze(1 - self.learned_domain, 0)
+        mask = mask.repeat(grad.shape[1], 1).t()
+        return grad * mask
+
+    def forward(self, x):
+        return self.net(x)
+
+
 class LinearClassifier(nn.Module):
     def __init__(self, input_dim, class_num):
         super(LinearClassifier, self).__init__()
@@ -78,6 +96,7 @@ class OurDIVA(nn.Module):
         self.device = device
         self.use_KL_close = True
         self.use_bayes = False
+        self.freeze_qd = True
 
         model_config = args['model']
         self.zd_dim = model_config['zd_dim']
@@ -110,7 +129,10 @@ class OurDIVA(nn.Module):
             self.qd = Qd(self.d_dim, self.pzd, self.device)
             self.qy = Qy(self.y_dim, self.pzy, self.device)
         else:
-            self.qd = LinearClassifier(self.zd_dim, self.d_dim)
+            if self.freeze_qd:
+                self.qd = FreezableLinearClassifier(self.zd_dim, self.d_dim, self.learned_domain)
+            else:
+                self.qd = LinearClassifier(self.zd_dim, self.d_dim)
             self.qy = LinearClassifier(self.zy_dim, self.y_dim)
 
         self.aux_loss_multiplier_y = model_config['aux_loss_multiplier_y']
