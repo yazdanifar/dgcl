@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
 from sklearn import decomposition
+from sklearn.manifold import TSNE
 
 
 def show_batch(dd, xx, y, t):
@@ -24,18 +25,18 @@ def show_batch(dd, xx, y, t):
 
 
 def project_to_2d(loc, based_on=None):
-    pca = decomposition.PCA(n_components=2)
-    cpuloc = loc.cpu().numpy()
-    if based_on is None:
-        pca.fit(cpuloc)
-    else:
-        pca.fit(cpuloc[:based_on])
-    return pca.transform(cpuloc)
+    cpuloc = loc.cpu()
+    unique_loc, index = torch.unique(loc, dim=0, return_inverse=True)
 
-    # pca = PCA(n_components=2)
-    # principalComponents = pca.fit_transform(loc.cpu().numpy())
-    # return principalComponents
+    X_embedded = TSNE(n_components=2, learning_rate='auto', init='random').fit_transform(unique_loc.cpu().numpy())
+    ans=X_embedded[index.cpu().numpy()]
+    return ans
 
+    # pca = decomposition.PCA(n_components=2)
+    # if based_on is None:
+    #     pca.fit(cpuloc)
+    # else:
+    #     pca.fit(cpuloc[:based_on])
     # return torch.matmul(loc, projection_matrix[:loc.size(1)]).cpu().numpy()
 
 
@@ -138,8 +139,8 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
         y = torch.cat(all_y, dim=0).cpu().numpy()
         d = torch.cat(all_d, dim=0).cpu().numpy()
 
-        zy=torch.cat(all_zy_q + all_zy_p, dim=0)
-        zd=torch.cat(all_zd_q + all_zd_p, dim=0)
+        zy = torch.cat(all_zy_q + all_zy_p, dim=0)
+        zd = torch.cat(all_zd_q + all_zd_p, dim=0)
         zy = project_to_2d(zy, based_on=(zy.shape[0] // 2) - gen_size)
         zd = project_to_2d(zd, based_on=zd.shape[0] // 2 - gen_size)
 
