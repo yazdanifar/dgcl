@@ -168,7 +168,7 @@ class OurDIVA(nn.Module):
         else:
             if self.freeze_classifiers:
                 self.qd = FreezableDomainClassifier(self.zd_dim, self.d_dim, self.learned_domain)
-                self.qy = FreezableLabelClassifier(self.zd_dim, self.y_dim, self.learned_domain)
+                self.qy = FreezableLabelClassifier(self.zy_dim, self.y_dim, self.learned_domain)
             else:
                 self.qd = LinearClassifier(self.zd_dim, self.d_dim)
                 self.qy = LinearClassifier(self.zy_dim, self.y_dim)
