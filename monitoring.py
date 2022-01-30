@@ -7,6 +7,9 @@ from data import DataScheduler
 from sklearn import decomposition
 from sklearn.manifold import TSNE
 
+global projection_matrix
+projection_matrix = torch.rand(size=(64, 2), device="cuda")  # torch.eye(64, device=config['device'])  # #
+
 
 def show_batch(dd, xx, y, t):
     dd, xx = dd.cpu(), xx.cpu()
@@ -64,7 +67,7 @@ def get_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader
 
     for step, (x, y, d) in enumerate(data_loader):
         # To device
-        x, y, d = x.to(scheduler.device), y.to(scheduler.device), d.to(scheduler.device)
+        x, y, d = x.to(scheduler.device).float(), y.to(scheduler.device).long(), d.to(scheduler.device).long()
 
         # Convert to onehot
         d_onehot = d_eye[d]

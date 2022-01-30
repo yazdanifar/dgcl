@@ -6,6 +6,8 @@ from collections import Iterator, OrderedDict
 from functools import reduce
 import os
 import math
+
+import numpy as np
 import torch
 import random
 from scipy.io import loadmat
@@ -253,7 +255,7 @@ class DataScheduler(Iterator):
                     num_workers=self.config['num_workers'],
                     collate_fn=collate_fn,
                     sampler=sup_sampler,
-                    drop_last=True,
+                    drop_last=False,
                     pin_memory=True
                 ))
             if unsup_dataset is not None:
@@ -263,7 +265,7 @@ class DataScheduler(Iterator):
                     num_workers=self.config['num_workers'],
                     collate_fn=collate_fn,
                     sampler=unsup_sampler,
-                    drop_last=True,
+                    drop_last=False,
                     pin_memory=True
                 ))
 
@@ -298,10 +300,8 @@ class DataScheduler(Iterator):
                 description += dataset.complete_name
             previous_dataset_name = dataset.complete_name
             description += str(dataset.subset_name)
-
             subsets.append(dataset)
         big_dataset = ConcatDataset(subsets)
-
         # for evaluation no sampler is needed
         test_sampler = RandomSampler(big_dataset)
         eval_data_loader = DataLoader(
@@ -310,7 +310,7 @@ class DataScheduler(Iterator):
             num_workers=self.config['eval_num_workers'],
             collate_fn=collate_fn,
             sampler=test_sampler,
-            drop_last=True,
+            drop_last=False,
             pin_memory=True
         )
         return eval_data_loader, description
@@ -327,7 +327,7 @@ class DataScheduler(Iterator):
             d_eye = torch.eye(self.domain_num, device=self.device)
             for inner_step, (xs, ys, ds) in enumerate(data_loader):
                 # To device
-                xs, ys, ds = xs.to(self.device), ys.to(self.device), ds.to(self.device)
+                xs, ys, ds = xs.to(self.device).float(), ys.to(self.device).long(), ds.to(self.device).long()
 
                 # Convert to onehot
                 ds = d_eye[ds]
@@ -345,12 +345,12 @@ class DataScheduler(Iterator):
             accuracy_y = (accurate_preds_y.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
 
             writer.add_scalar(
-                'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
-                accuracy_y, step
-            )
-            writer.add_scalar(
                 'accuracy_d/%s/task_%s_%s' % (eval_title, str(task_id), description),
                 accuracy_d, step
+            )
+            writer.add_scalar(
+                'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
+                accuracy_y, step
             )
             return accuracy_d, accuracy_y
 
@@ -530,13 +530,13 @@ class CLOF(ClassificationDataset):
 
         allData = loadmat(self.dataRoot)  # ,variable_names='IMAGES',appendmat=True)#.get('IMAGES')
 
-        self.labels = allData['labels']
+        self.labels = allData['labels']-1
         self.images = allData['feas']
 
-        l = 0 if train else int(len(self.labels) * 0.9)
-        r = int(len(self.labels) * 0.9) if train else len(self.labels)
+        l = 0 if 1==1 else int(len(self.labels) * 0.9)
+        r = int(len(self.labels) * 0.9) if 1==1 else len(self.labels)
 
-        self.labels = self.labels[l:r]
+        self.labels = self.labels[l:r,0]
         self.images = self.images[l:r]
 
         ClassificationDataset.__init__(self, config, train)
@@ -549,7 +549,6 @@ class CLOF(ClassificationDataset):
                 list((self.targets == y
                       ).nonzero().squeeze(1).numpy())
             )
-
         self.offset_label()
 
     def __len__(self):
@@ -557,6 +556,7 @@ class CLOF(ClassificationDataset):
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         img, target = self.images[index], self.labels[index]
+        img=np.expand_dims(img, axis=1)
         img = self.transform(img)
         return img, target
 

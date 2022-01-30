@@ -22,8 +22,6 @@ def train_model(config, model,
                 scheduler: DataScheduler,
                 writer: SummaryWriter,
                 prof: torch.profiler.profile):
-    global projection_matrix
-    projection_matrix = torch.rand(size=(64, 2), device=config['device'])  # torch.eye(64, device=config['device'])  # #
 
     class_num = config['y_dim']
     domain_num = config['d_dim']
@@ -101,9 +99,9 @@ def train_model(config, model,
             monitoring.save_reconstructions(prev_model, model, scheduler, writer, step, t)
 
         # to device
-        x, d = x.to(device), d.to(device)
+        x, d = x.to(device).float(), d.to(device).long()
         if y is not None:
-            y = y.to(device)
+            y = y.to(device).long()
         # Train the model
         prof.step()  # after loading data
         # Convert to onehot

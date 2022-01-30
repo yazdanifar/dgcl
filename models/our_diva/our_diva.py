@@ -130,6 +130,7 @@ class OurDIVA(nn.Module):
         self.use_bayes = False
         self.freeze_classifiers = True
         self.freeze_priors = True
+        self.recon_loss="MSE"#"cross_entropy"
 
         model_config = args['model']
         self.zd_dim = model_config['zd_dim']
@@ -291,7 +292,12 @@ class OurDIVA(nn.Module):
             else:
                 zx_p_loc, zx_p_scale = None, None
 
-            CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+            if self.recon_loss=="cross_entropy":
+                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+            elif self.recon_loss=="MSE":
+                CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
+            else:
+                raise NotImplementedError
 
             if self.use_KL_close:
                 zd_p_minus_zd_q = -OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
@@ -343,7 +349,13 @@ class OurDIVA(nn.Module):
                 , zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
             zy_p_loc, zy_p_scale = self.pzy(y)
 
-            CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+            if self.recon_loss == "cross_entropy":
+                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+            elif self.recon_loss == "MSE":
+                CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
+            else:
+                raise NotImplementedError
+
 
             if self.use_KL_close:
                 zd_p_minus_zd_q = -OurDIVA.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
