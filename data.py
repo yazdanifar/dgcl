@@ -8,6 +8,7 @@ import os
 import math
 import torch
 import random
+from scipy.io import loadmat
 
 from torch.utils.data import (
     Dataset,
@@ -69,7 +70,7 @@ class DataScheduler(Iterator):
                 stage_total = stage_total // config['batch_size']
 
             self.total_step += stage_total
-            print("task batches:",stage_total)
+            print("task batches:", stage_total)
             self.task_step.append(stage_total)
 
         # Prepare testing datasets
@@ -513,6 +514,88 @@ class SVHN(torchvision.datasets.SVHN, ClassificationDataset):
         self.offset_label()
 
 
+class CLOF(ClassificationDataset):
+    name = 'CLOF'
+    num_classes = 10
+
+    def __init__(self, dataRoot, config, train=True):
+        # Compose transformation
+        transform_list = [
+            transforms.ToTensor(),
+        ]
+        self.transform = transforms.Compose(transform_list)
+
+        # Initialize super classes
+        self.dataRoot = dataRoot
+
+        allData = loadmat(self.dataRoot)  # ,variable_names='IMAGES',appendmat=True)#.get('IMAGES')
+
+        self.labels = allData['labels']
+        self.images = allData['feas']
+
+        l = 0 if train else int(len(self.labels) * 0.9)
+        r = int(len(self.labels) * 0.9) if train else len(self.labels)
+
+        self.labels = self.labels[l:r]
+        self.images = self.images[l:r]
+
+        ClassificationDataset.__init__(self, config, train)
+
+        # Create subset for each class
+        self.targets = torch.Tensor(self.labels)
+        for y in range(self.num_classes):
+            self.subsets[y] = Subset(
+                self,
+                list((self.targets == y
+                      ).nonzero().squeeze(1).numpy())
+            )
+
+        self.offset_label()
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+        img, target = self.images[index], self.labels[index]
+        img = self.transform(img)
+        return img, target
+
+    def collate_fn(self, batch):
+        return default_collate(batch)
+
+
+class CLOFA(CLOF):
+    name = 'CLOFA'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+        super(CLOFA, self).__init__("data_files/caltech-ofiice-10/amazon_decaf.mat", config, train)
+
+
+class CLOFC(CLOF):
+    name = 'CLOFC'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+        super(CLOFC, self).__init__("data_files/caltech-ofiice-10/caltech_decaf.mat", config, train)
+
+
+class CLOFD(CLOF):
+    name = 'CLOFD'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+        super(CLOFD, self).__init__("data_files/caltech-ofiice-10/dslr_decaf.mat", config, train)
+
+
+class CLOFW(CLOF):
+    name = 'CLOFW'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+        super(CLOFW, self).__init__("data_files/caltech-ofiice-10/webcam_decaf.mat", config, train)
+
+
 class CIFAR10(torchvision.datasets.CIFAR10, ClassificationDataset):
     name = 'cifar10'
     num_classes = 10
@@ -627,4 +710,8 @@ DATASET = {
     USPS.name: USPS,
     CIFAR10.name: CIFAR10,
     CIFAR100.name: CIFAR100,
+    CLOFC.name: CLOFC,
+    CLOFD.name: CLOFD,
+    CLOFA.name: CLOFA,
+    CLOFW.name: CLOFW,
 }

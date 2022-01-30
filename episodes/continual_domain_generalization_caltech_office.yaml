@@ -1,0 +1,34 @@
+train:
+  - subsets: [ ['CLOFW', 0, 0, 's', 1 ], ['CLOFW', 1, 0, 's', 1],
+               ['CLOFW', 2, 0, 's', 1 ], ['CLOFW', 3, 0, 's', 1],
+               ['CLOFW', 4, 0, 's', 1 ], ['CLOFW', 5, 0, 's', 1],
+               ['CLOFW', 6, 0, 's', 1 ], ['CLOFW', 7, 0, 's', 1],
+               ['CLOFW', 8, 0, 's', 1 ], ['CLOFW', 9, 0, 's', 1] ]
+    epochs: 6
+
+  - subsets: [ ['CLOFD', 0, 0, 's', 1 ], ['CLOFD', 1, 0, 's', 1],
+               ['CLOFD', 2, 0, 's', 1 ], ['CLOFD', 3, 0, 's', 1],
+               ['CLOFD', 4, 0, 's', 1 ], ['CLOFD', 5, 0, 's', 1],
+               ['CLOFD', 6, 0, 's', 1 ], ['CLOFD', 7, 0, 's', 1],
+               ['CLOFD', 8, 0, 's', 1 ], ['CLOFD', 9, 0, 's', 1] ]
+    epochs: 6
+
+  - subsets: [ ['CLOFC', 0, 0, 's', 1 ], ['CLOFC', 1, 0, 's', 1],
+               ['CLOFC', 2, 0, 's', 1 ], ['CLOFC', 3, 0, 's', 1],
+               ['CLOFC', 4, 0, 's', 1 ], ['CLOFC', 5, 0, 's', 1],
+               ['CLOFC', 6, 0, 's', 1 ], ['CLOFC', 7, 0, 's', 1],
+               ['CLOFC', 8, 0, 's', 1 ], ['CLOFC', 9, 0, 's', 1] ]
+    epochs: 6
+
+  - subsets: [ ['CLOFA', 0, 0, 's', 1 ], ['CLOFA', 1, 0, 's', 1],
+               ['CLOFA', 2, 0, 's', 1 ], ['CLOFA', 3, 0, 's', 1],
+               ['CLOFA', 4, 0, 's', 1 ], ['CLOFA', 5, 0, 's', 1],
+               ['CLOFA', 6, 0, 's', 1 ], ['CLOFA', 7, 0, 's', 1],
+               ['CLOFA', 8, 0, 's', 1 ], ['CLOFA', 9, 0, 's', 1] ]
+    epochs: 6
+
+
+test:
+  include-training-task: True
+  tasks:
+

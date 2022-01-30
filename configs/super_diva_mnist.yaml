@@ -12,6 +12,10 @@ label_offset:
   mnist: 0
   svhn: 0
   usps: 0
+  CLOFA: 0
+  CLOFD: 0
+  CLOFC: 0
+  CLOFW: 0
 
 #########
 # Model #
