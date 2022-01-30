@@ -129,7 +129,7 @@ def save_latent_variable(prev_model, model, scheduler: DataScheduler, writer: Su
         gen_size = 0
         if generated:
             x, y, d = generated
-            zy_p, zy_q, zd_p, zd_q, y, d = get_latent_variable_by_data(prev_model, x, y, d, scheduler)
+            zy_p, zy_q, zd_p, zd_q, y, d = get_latent_variable_by_data(model, x, y, d, scheduler)
             gen_size = d.shape[0]
             all_zy_q.append(zy_q)
             all_zy_p.append(zy_p)

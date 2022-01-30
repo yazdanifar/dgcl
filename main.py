@@ -22,7 +22,8 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/continual_diva_mnist_rotate.yaml'
+    '--episode', '-e', default='episodes/continual_domain_adaptation_caltech_ofiice.yaml'
+    # 'episodes/continual_diva_mnist_rotate.yaml'
     # 'episodes/diva_mnist_rotate_sup_and_unsup.yaml'
     # 'episodes/simple_mnist_for_test.yaml'
     # 'episodes/mnist_svhn-online.yaml'
