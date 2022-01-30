@@ -325,7 +325,9 @@ class DataScheduler(Iterator):
             # use the right data loader
             y_eye = torch.eye(self.class_num, device=self.device)
             d_eye = torch.eye(self.domain_num, device=self.device)
+            dataset_len = 0
             for inner_step, (xs, ys, ds) in enumerate(data_loader):
+                dataset_len += ys.shape[0]
                 # To device
                 xs, ys, ds = xs.to(self.device).float(), ys.to(self.device).long(), ds.to(self.device).long()
 
@@ -339,10 +341,10 @@ class DataScheduler(Iterator):
                 accurate_preds_y += torch.sum(pred_y * ys)
 
             # calculate the accuracy between 0 and 1
-            accuracy_d = (accurate_preds_d.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
+            accuracy_d = (accurate_preds_d.item() * 1.0) / dataset_len
 
             # calculate the accuracy between 0 and 1
-            accuracy_y = (accurate_preds_y.item() * 1.0) / (len(data_loader) * self.config['eval_batch_size'])
+            accuracy_y = (accurate_preds_y.item() * 1.0) / dataset_len
 
             writer.add_scalar(
                 'accuracy_d/%s/task_%s_%s' % (eval_title, str(task_id), description),
@@ -530,13 +532,17 @@ class CLOF(ClassificationDataset):
 
         allData = loadmat(self.dataRoot)  # ,variable_names='IMAGES',appendmat=True)#.get('IMAGES')
 
-        self.labels = allData['labels']-1
+        self.labels = allData['labels'] - 1
         self.images = allData['feas']
+        mean = np.mean(self.images, axis=0)
+        self.images -= mean
+        std = np.maximum(np.std(self.images, axis=0), 0.0001)
+        self.images /= std
 
-        l = 0 if 1==1 else int(len(self.labels) * 0.9)
-        r = int(len(self.labels) * 0.9) if 1==1 else len(self.labels)
+        l = 0 if 1 == 1 else int(len(self.labels) * 0.9)
+        r = int(len(self.labels) * 0.9) if 1 == 1 else len(self.labels)
 
-        self.labels = self.labels[l:r,0]
+        self.labels = self.labels[l:r, 0]
         self.images = self.images[l:r]
 
         ClassificationDataset.__init__(self, config, train)
@@ -556,7 +562,7 @@ class CLOF(ClassificationDataset):
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         img, target = self.images[index], self.labels[index]
-        img=np.expand_dims(img, axis=1)
+        img = np.expand_dims(img, axis=1)
         img = self.transform(img)
         return img, target
 
