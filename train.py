@@ -7,11 +7,14 @@ import torch
 from tensorboardX import SummaryWriter
 from data import DataScheduler
 import torch.optim as optim
+
+from models.our_diva.CalOff import CalOff
 from models.our_diva.our_diva import OurDIVA
 import monitoring
 
 MODEL = {
-    "OurDIVA": OurDIVA
+    "OurDIVA": OurDIVA,
+    "CalOff": CalOff
 }
 
 
