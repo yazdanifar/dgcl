@@ -1,7 +1,28 @@
+import torch
 from tensorboardX import SummaryWriter
 from torch import nn
 
 from models.our_diva.our_diva import OurDIVA
+
+
+class CalOff(OurDIVA):
+
+    def __init__(self, args, writer: SummaryWriter, device):
+        super(CalOff, self).__init__(args, writer, device)
+        self.name = "CalOffPx"
+        self.device = device
+        self.use_KL_close = True
+        self.use_bayes = False
+        self.freeze_classifiers = False
+        self.freeze_priors = False
+        self.recon_loss = "MSE"  # "cross_entropy"
+
+        self.px = CalOffPx(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+
+        self.qzd = CalOffQzd(self.x_dim, self.zd_dim)
+        if self.zx_dim != 0:
+            self.qzx = CalOffQzx(self.x_dim, self.zx_dim)
+        self.qzy = CalOffQzy(self.x_dim, self.zy_dim)
 
 
 class CalOffPx(nn.Module):
@@ -9,6 +30,15 @@ class CalOffPx(nn.Module):
         super(CalOffPx, self).__init__()
         self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c = zd_dim, zx_dim, zy_dim, x_w, x_h, x_c
         self.fc = nn.Sequential(nn.Linear(self.zd_dim + self.zx_dim + self.zy_dim, self.x_w * self.x_h), nn.Sigmoid())
+
+    def forward(self, zd, zx, zy):
+        if zx is None:
+            zdzxzy = torch.cat((zd, zy), dim=-1)
+        else:
+            zdzxzy = torch.cat((zd, zx, zy), dim=-1)
+        h = self.fc(zdzxzy)
+        batch_size = zy.size(0)
+        return h.view(batch_size, self.x_c, self.x_h, self.x_w)
 
 
 class CalOffEncoder(nn.Module):
@@ -38,23 +68,3 @@ class CalOffQzy(CalOffEncoder):
 class CalOffQzx(CalOffEncoder):
     def __init__(self, x_dim, zx_dim):
         super(CalOffQzx, self).__init__(x_dim, zx_dim)
-
-
-class CalOff(OurDIVA):
-
-    def __init__(self, args, writer: SummaryWriter, device):
-        super(CalOff, self).__init__(args, writer, device)
-        self.name = "CalOffPx"
-        self.device = device
-        self.use_KL_close = True
-        self.use_bayes = False
-        self.freeze_classifiers = False
-        self.freeze_priors = False
-        self.recon_loss = "MSE"  # "cross_entropy"
-
-        self.px = CalOffPx(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
-
-        self.qzd = CalOffQzd(self.x_dim, self.zd_dim)
-        if self.zx_dim != 0:
-            self.qzx = CalOffQzx(self.x_dim, self.zx_dim)
-        self.qzy = CalOffQzy(self.x_dim, self.zy_dim)
