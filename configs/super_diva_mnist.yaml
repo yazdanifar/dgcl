@@ -29,7 +29,7 @@ d_dim: 4
 
 device: 'cuda'
 testing_mode: True
-model_name: 'OurDIVA'
+model_name: 'CalOff'
 recon_loss: 'bernouiiilli'
 
 ###########
