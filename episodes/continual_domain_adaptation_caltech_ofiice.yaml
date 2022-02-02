@@ -49,11 +49,11 @@ test:
                  ['CLOFC', 4, 2 ], ['CLOFC', 5, 2],
                  ['CLOFC', 6, 2 ], ['CLOFC', 7, 2],
                  ['CLOFC', 8, 2 ], ['CLOFC', 9, 2] ]
-      start_from: 2
+      start_from: 1
 
     - subsets: [ ['CLOFA', 0, 3 ], ['CLOFA', 1, 3],
                  ['CLOFA', 2, 3 ], ['CLOFA', 3, 3],
                  ['CLOFA', 4, 3 ], ['CLOFA', 5, 3],
                  ['CLOFA', 6, 3 ], ['CLOFA', 7, 3],
                  ['CLOFA', 8, 3 ], ['CLOFA', 9, 3] ]
-      start_from: 3
+      start_from: 1
