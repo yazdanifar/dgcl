@@ -1,6 +1,8 @@
 from tensorboardX import SummaryWriter
 from torch import nn
 
+from models.our_diva.our_diva import OurDIVA
+
 
 class CalOffPx(nn.Module):
     def __init__(self, zd_dim, zx_dim, zy_dim, x_w, x_h, x_c):
@@ -38,10 +40,10 @@ class CalOffQzx(CalOffEncoder):
         super(CalOffQzx, self).__init__(x_dim, zx_dim)
 
 
-class CalOff(nn.Module):
+class CalOff(OurDIVA):
 
     def __init__(self, args, writer: SummaryWriter, device):
-        super(CalOff, self).__init__()
+        super(CalOff, self).__init__(args, writer, device)
         self.name = "CalOffPx"
         self.device = device
         self.use_KL_close = True
