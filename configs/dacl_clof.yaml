@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 20
+batch_size: 10
 num_workers: 2
 eval_batch_size: 100
 eval_num_workers: 2
@@ -29,7 +29,7 @@ d_dim: 4
 
 device: 'cuda'
 testing_mode: True
-model_name: 'OurDIVA'
+model_name: 'ClOf'
 recon_loss: 'bernouiiilli'
 
 ###########
@@ -54,7 +54,7 @@ training_loss_step: 10
 # Replay #
 ##########
 enable_replay: True
-replay_batch_size: 20
+replay_batch_size: 10
 replay_ratio: 1
 replay_loss_multiplier: 1
 equal_loss_scale: False
@@ -65,21 +65,22 @@ scale_replay_loss_wrt_num_tasks: True
 model:
   use_aux_domain: True
   use_aux_class: True
+  recon_loss: 'MSE'
 
   freeze_latent_domain: True
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False
   seed: 1
-  lr: 0.001
+  lr: 0.00002
 
   zd_dim: 64
-  zx_dim: 64
+  zx_dim: 0
   zy_dim: 64
 
   # Aux multipliers
-  aux_loss_multiplier_y: 3500
-  aux_loss_multiplier_d: 2000
+  aux_loss_multiplier_y: 50000000
+  aux_loss_multiplier_d: 8000000
 
   # Beta VAE part
   beta_d: 1

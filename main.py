@@ -10,11 +10,13 @@ import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
+from models.our_diva.ClOf import ClOf
 from models.our_diva.our_diva import OurDIVA
 from train import train_model
 
 MODEL = {
-    "OurDIVA": OurDIVA
+    "OurDIVA": OurDIVA,
+    "ClOf": ClOf
 }
 
 parser = ArgumentParser()
@@ -22,7 +24,7 @@ parser.add_argument(
     '--config', '-c', default='configs/super_diva_mnist.yaml'
 )
 parser.add_argument(
-    '--episode', '-e', default='episodes/continual_domain_adaptation_caltech_ofiice.yaml'
+    '--episode', '-e', default='episodes/continual_domain_adaptation_caltech_office.yaml'
     # 'episodes/continual_diva_mnist_rotate.yaml'
     # 'episodes/diva_mnist_rotate_sup_and_unsup.yaml'
     # 'episodes/simple_mnist_for_test.yaml'

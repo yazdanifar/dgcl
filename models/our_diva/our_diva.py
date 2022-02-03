@@ -130,9 +130,10 @@ class OurDIVA(nn.Module):
         self.use_bayes = False
         self.freeze_classifiers = True
         self.freeze_priors = True
-        self.recon_loss="MSE"#"cross_entropy"
 
         model_config = args['model']
+
+        self.recon_loss = model_config['recon_loss'] #"MSE" "cross_entropy"
         self.zd_dim = model_config['zd_dim']
         self.zx_dim = model_config['zx_dim']
         self.zy_dim = model_config['zy_dim']
