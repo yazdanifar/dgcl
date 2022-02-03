@@ -1,0 +1,92 @@
+###########
+# Dataset #
+###########
+
+data_root: 'data_files'
+batch_size: 256
+num_workers: 2
+eval_batch_size: 1024
+eval_num_workers: 2
+
+label_offset:
+  mnist: 0
+  svhn: 0
+  usps: 0
+
+#########
+# Model #
+#########
+
+x_c: 1
+x_h: 28
+x_w: 28
+y_dim: 10
+d_dim: 6
+
+device: 'cuda'
+testing_mode: True
+model_name: 'OurDIVA'
+recon_loss: 'bernouiiilli'
+
+###########
+# Summary #
+###########
+
+add_time_to_log: True
+print_times: False
+
+eval_per_task: 3
+eval_step:
+initial_evaluation: False
+eval_in_task_change: False
+
+summary_per_task: 6
+summary_step:
+summarize_samples: True
+
+training_loss_step: 10
+
+##########
+# Replay #
+##########
+enable_replay: True
+replay_batch_size: 256
+replay_ratio: 1
+replay_loss_multiplier: 1
+equal_loss_scale: False
+scale_replay_loss_wrt_num_tasks: True
+################
+# DIVA configs #
+################
+model:
+  use_aux_domain: True
+  use_aux_class: True
+  recon_loss: 'cross_entropy'
+  freeze_latent_domain: True
+  # Training settings
+  description: 'TwoTaskVae'
+  no-cuda: False
+  seed: 0
+  lr: 0.001
+
+  zd_dim: 64
+  zx_dim: 64
+  zy_dim: 64
+
+  # Aux multipliers
+  aux_loss_multiplier_y: 3500
+  aux_loss_multiplier_d: 2000
+
+  # Beta VAE part
+  beta_d: 1
+  beta_x: 1
+  beta_y: 1
+#
+# w, warm_up, N: 100
+#  max_beta, MB: 1    help='max beta for warm-up')
+#  min_beta, MB: 0    help='min beta for warm-up')
+#
+#  # Set seed
+#  torch.manual_seed(args.seed)
+#  torch.backends.cudnn.benchmark = False
+#  np.random.seed(args.seed)

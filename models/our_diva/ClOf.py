@@ -5,19 +5,18 @@ from torch import nn
 from models.our_diva.our_diva import OurDIVA
 
 
-class CalOff(OurDIVA):
+class ClOf(OurDIVA):
 
     def __init__(self, args, writer: SummaryWriter, device):
-        super(CalOff, self).__init__(args, writer, device)
-        self.name = "CalOffPx"
+        super(ClOf, self).__init__(args, writer, device)
+        self.name = "ClOfPx"
         self.device = device
         self.use_KL_close = True
         self.use_bayes = False
         self.freeze_classifiers = False
         self.freeze_priors = False
-        self.recon_loss = "MSE"  # "cross_entropy"
 
-        self.px = CalOffPx(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+        self.px = ClOfPx(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
 
         self.qzd = CalOffQzd(self.x_dim, self.zd_dim)
         if self.zx_dim != 0:
@@ -25,9 +24,9 @@ class CalOff(OurDIVA):
         self.qzy = CalOffQzy(self.x_dim, self.zy_dim)
 
 
-class CalOffPx(nn.Module):
+class ClOfPx(nn.Module):
     def __init__(self, zd_dim, zx_dim, zy_dim, x_w, x_h, x_c):
-        super(CalOffPx, self).__init__()
+        super(ClOfPx, self).__init__()
         self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c = zd_dim, zx_dim, zy_dim, x_w, x_h, x_c
         self.fc = nn.Sequential(nn.Linear(self.zd_dim + self.zx_dim + self.zy_dim, self.x_w * self.x_h), nn.Sigmoid())
 

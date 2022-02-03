@@ -10,13 +10,13 @@ import torch
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
-from models.our_diva.CalOff import CalOff
+from models.our_diva.ClOf import ClOf
 from models.our_diva.our_diva import OurDIVA
 from train import train_model
 
 MODEL = {
     "OurDIVA": OurDIVA,
-    "CalOff": CalOff
+    "ClOf": ClOf
 }
 
 parser = ArgumentParser()
