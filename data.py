@@ -47,7 +47,7 @@ class DataScheduler(Iterator):
         self.total_step = 0
         self.task_step = []
         self.stage = -1
-
+        self.step = 0
         self.domain_nums = []
 
         # Prepare training datasets
@@ -150,7 +150,8 @@ class DataScheduler(Iterator):
         elif self.unsup_iterator is None:
             data = next(self.sup_iterator)
             unsup = False
-        elif random.random() < self.unsup_portion:  # TODO: remove random if portion is 0.1 self.step%10==0 should be the if condition
+        elif (self.unsup_portion > 0.5 and self.step % self.supervised_period != 0) or (
+                self.unsup_portion < 0.5 and self.step % self.unsupervised_period == 0):
             data = next(self.unsup_iterator)
             unsup = True
         else:
@@ -171,11 +172,12 @@ class DataScheduler(Iterator):
 
     def __next__(self):
         try:
+            self.step += 1
             data, unsup = self.get_data()
-
         except StopIteration:
             # Progress to next stage
             self.stage += 1
+            self.step = 0
             print('\nProgressing to stage %d' % self.stage)
             if self.stage >= len(self.schedule['train']):
                 raise StopIteration
@@ -275,7 +277,19 @@ class DataScheduler(Iterator):
                 self.unsup_portion = 0
             else:
                 self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
-
+                self.supervised_period = 1
+                self.unsupervised_period = 1
+                if self.unsup_portion > 0.5:
+                    self.supervised_period = int(1 / (1 - self.unsup_portion))
+                    if self.supervised_period != 1 / (1 - self.unsup_portion):
+                        print(self.unsup_portion,
+                              "we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
+                        raise ValueError
+                else:
+                    self.unsupervised_period = int(1 / self.unsup_portion)
+                    if self.unsupervised_period != 1 / self.unsup_portion:
+                        print("we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
+                        raise ValueError
             print("in this stage unsup portion to all baches is:", round(self.unsup_portion, 3))
             data, unsup = self.get_data()
 
