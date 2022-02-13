@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 256
+batch_size: 100
 num_workers: 2
 eval_batch_size: 1024
 eval_num_workers: 2
@@ -35,12 +35,12 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: True
 print_times: False
 
-eval_per_task: 3
+eval_per_task: 12
 eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 6
+summary_per_task: 12
 summary_step:
 summarize_samples: True
 
@@ -74,19 +74,16 @@ model:
   zy_dim: 64
 
   # Aux multipliers
-  aux_loss_multiplier_y: 35000
+  aux_loss_multiplier_y: 4200
   aux_loss_multiplier_d: 2000
   aux_loss_discriminator: 0
   # Beta VAE part
   beta_d: 1
   beta_x: 1
   beta_y: 1
+
+  warm_up: 0.3
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')
 #  min_beta, MB: 0    help='min beta for warm-up')
-#
-#  # Set seed
-#  torch.manual_seed(args.seed)
-#  torch.backends.cudnn.benchmark = False
-#  np.random.seed(args.seed)

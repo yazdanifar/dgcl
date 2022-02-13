@@ -28,7 +28,7 @@ train:
               [ 'mnist', 4, 4,'u', 1, 60 ], [ 'mnist', 5, 4,'u', 1, 60 ],
               [ 'mnist', 6, 4,'u', 1, 60 ], [ 'mnist', 7, 4,'u', 1, 60 ],
               [ 'mnist', 8, 4,'u', 1, 60 ], [ 'mnist', 9, 4,'u', 1, 60 ]]
-    epochs: 3
+    epochs: 12
 
 test:
   include-training-task: False
