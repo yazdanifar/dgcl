@@ -414,9 +414,8 @@ class ProxyDataset(Dataset):
         if dataset_name not in ProxyDataset.datasets[train]:
             inner_dataset = DATASET[dataset_name](config, train=train)
             ProxyDataset.datasets[train][dataset_name] = inner_dataset
-            self.inner_dataset = inner_dataset.subsets[subset_name]
-        else:
-            self.inner_dataset = ProxyDataset.datasets[train][dataset_name].subsets[subset_name]
+
+        self.inner_dataset = ProxyDataset.datasets[train][dataset_name].subsets[subset_name]
 
         if self.supervised:
             self.offset = 0
@@ -491,9 +490,15 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
 
         # Create subset for each class
         for y in range(self.num_classes):
+            list_samples = list((self.targets == y).nonzero().squeeze(1).numpy())
+            #########
+            if config['sample_per_class']:
+                list_samples = list_samples[:config['sample_per_class']]
+            print(len(list_samples))
+            #########
             self.subsets[y] = Subset(
                 self,
-                list((self.targets == y).nonzero().squeeze(1).numpy())
+                list_samples
             )
         self.offset_label()
 
