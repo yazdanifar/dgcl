@@ -25,7 +25,8 @@ def train_model(config, model,
                 scheduler: DataScheduler,
                 writer: SummaryWriter,
                 prof: torch.profiler.profile):
-
+    warmup = config['model']['warm_up'] * len(scheduler)
+    print("warm_up", warmup)
     class_num = config['y_dim']
     domain_num = config['d_dim']
 
@@ -58,6 +59,14 @@ def train_model(config, model,
             print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))
 
         step += 1
+        if step % 60 == 0:
+            beta_d = min([config['model']['beta_d'], config['model']['beta_d'] * step / warmup])
+            beta_y = min([config['model']['beta_y'], config['model']['beta_y'] * step / warmup])
+            beta_x = min([config['model']['beta_x'], config['model']['beta_x'] * step / warmup])
+            model.beta_d = beta_d
+            model.beta_y = beta_y
+            model.beta_x = beta_x
+
         print('\r[Step {:4} of {} ({:2.2%})]'.format(step, len(scheduler), step / len(scheduler)), end=' ')
         if step % config['training_loss_step'] == 0:
             p = psutil.Process(os.getpid())
@@ -192,4 +201,3 @@ def train_model(config, model,
     prof.stop()
     train_loss /= len(scheduler)
     epoch_class_y_loss /= len(scheduler)
-
