@@ -38,6 +38,7 @@ class DataScheduler(Iterator):
     def __init__(self, config):
         self.sup_dataloader = None
         self.unsup_dataloader = None
+        self.remained_epoch = 0
 
         self.config = config
         self.device = config['device']
@@ -179,8 +180,9 @@ class DataScheduler(Iterator):
             data, unsup = self.get_data()
         except StopIteration:
             # Progress to next stage
-            if (self.sup_dataloader is not None) or (self.unsup_dataloader is not None):
-                print("next epoch")
+            if self.remained_epoch > 0:
+                print("next epoch, remained_epoch:", self.remained_epoch)
+                self.remained_epoch -= 1
                 if self.sup_dataloader is not None:
                     self.sup_iterator = iter(self.sup_dataloader)
                 if self.unsup_dataloader is not None:
@@ -208,81 +210,90 @@ class DataScheduler(Iterator):
                 unsup_dataset = None
                 if len(sup_subsets) > 0:
                     sup_dataset = ConcatDataset(sup_subsets)
-                    # print('sup dataset len', len(sup_dataset))
                 if len(unsup_subsets) > 0:
                     unsup_dataset = ConcatDataset(unsup_subsets)
-                    # print('unsup dataset len', len(unsup_dataset))
 
-                # # Determine sampler
-                # if 'samples' in stage:
-                #     if sup_dataset is not None:
-                #         sup_sampler = RandomSampler(
-                #             sup_dataset,
-                #             replacement=True,
-                #             num_samples=stage['samples']
-                #         )
-                #     if unsup_dataset is not None:
-                #         unsup_sampler = RandomSampler(
-                #             unsup_dataset,
-                #             replacement=True,
-                #             num_samples=stage['samples']
-                #         )
-                # elif 'steps' in stage:
-                #     if sup_dataset is not None:
-                #         sup_sampler = RandomSampler(
-                #             sup_dataset,
-                #             replacement=True,
-                #             num_samples=stage['steps'] * self.config['batch_size']
-                #         )
-                #     if unsup_dataset is not None:
-                #         unsup_sampler = RandomSampler(
-                #             unsup_dataset,
-                #             replacement=True,
-                #             num_samples=stage['steps'] * self.config['batch_size']
-                #         )
-                # elif 'epochs' in stage:
-                #     if sup_dataset is not None:
-                #         sup_sampler = RandomSampler(
-                #             sup_dataset,
-                #             replacement=True,
-                #             num_samples=(int(stage['epochs'] * len(sup_dataset))
-                #                          + len(sup_dataset) % self.config['batch_size'])
-                #         )
-                #     if unsup_dataset is not None:
-                #         unsup_sampler = RandomSampler(
-                #             unsup_dataset,
-                #             replacement=True,
-                #             num_samples=(int(stage['epochs'] * len(unsup_dataset))
-                #                          + len(unsup_dataset) % self.config['batch_size'])
-                #         )
-                # else:
-                #     if sup_dataset is not None:
-                #         sup_sampler = RandomSampler(sup_dataset)
-                #     if unsup_dataset is not None:
-                #         unsup_sampler = RandomSampler(unsup_dataset)
+                # Determine sampler
+                if 'samples' in stage:
+                    self.remained_epoch = 0
+                    if sup_dataset is not None:
+                        sup_sampler = RandomSampler(
+                            sup_dataset,
+                            replacement=True,
+                            num_samples=stage['samples']
+                        )
+                    if unsup_dataset is not None:
+                        unsup_sampler = RandomSampler(
+                            unsup_dataset,
+                            replacement=True,
+                            num_samples=stage['samples']
+                        )
+                elif 'steps' in stage:
+                    self.remained_epoch = 0
+                    if sup_dataset is not None:
+                        sup_sampler = RandomSampler(
+                            sup_dataset,
+                            replacement=True,
+                            num_samples=stage['steps'] * self.config['batch_size']
+                        )
+                    if unsup_dataset is not None:
+                        unsup_sampler = RandomSampler(
+                            unsup_dataset,
+                            replacement=True,
+                            num_samples=stage['steps'] * self.config['batch_size']
+                        )
+                elif 'epochs' in stage:
+                    self.remained_epoch = stage['epochs']
+                    sup_sampler = None
+                    unsup_sampler = None
+                else:
+                    self.remained_epoch = 0
+                    sup_sampler = None
+                    unsup_sampler = None
+
                 if sup_dataset is not None:
-                    self.sup_dataloader = DataLoader(
-                        sup_dataset,
-                        batch_size=self.config['batch_size'],
-                        num_workers=self.config['num_workers'],
-                        collate_fn=collate_fn,
-                        # sampler=sup_sampler,
-                        # drop_last=True,
-                        pin_memory=True,
-                        shuffle=True
-                    )
+                    if sup_sampler is None:
+                        self.sup_dataloader = DataLoader(
+                            sup_dataset,
+                            batch_size=self.config['batch_size'],
+                            num_workers=self.config['num_workers'],
+                            collate_fn=collate_fn,
+                            drop_last=True,
+                            pin_memory=True,
+                            shuffle=True
+                        )
+                    else:
+                        self.sup_dataloader = DataLoader(
+                            sup_dataset,
+                            batch_size=self.config['batch_size'],
+                            num_workers=self.config['num_workers'],
+                            collate_fn=collate_fn,
+                            sampler=sup_sampler,
+                            drop_last=True,
+                            pin_memory=True
+                        )
                     self.sup_iterator = iter(self.sup_dataloader)
                 if unsup_dataset is not None:
-                    self.unsup_dataloader = DataLoader(
-                        unsup_dataset,
-                        batch_size=self.config['batch_size'],
-                        num_workers=self.config['num_workers'],
-                        collate_fn=collate_fn,
-                        # sampler=unsup_sampler,
-                        # drop_last=False,
-                        pin_memory=True,
-                        shuffle=True
-                    )
+                    if unsup_sampler is None:
+                        self.unsup_dataloader = DataLoader(
+                            unsup_dataset,
+                            batch_size=self.config['batch_size'],
+                            num_workers=self.config['num_workers'],
+                            collate_fn=collate_fn,
+                            drop_last=False,
+                            pin_memory=True,
+                            shuffle=True
+                        )
+                    else:
+                        self.unsup_dataloader = DataLoader(
+                            unsup_dataset,
+                            batch_size=self.config['batch_size'],
+                            num_workers=self.config['num_workers'],
+                            collate_fn=collate_fn,
+                            sampler=unsup_sampler,
+                            drop_last=False,
+                            pin_memory=True
+                        )
                     self.unsup_iterator = iter(self.unsup_dataloader)
 
                 if sup_dataset is None:
