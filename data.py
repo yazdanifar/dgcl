@@ -494,7 +494,6 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
             #########
             if config['sample_per_class']:
                 list_samples = list_samples[:config['sample_per_class']]
-            print(len(list_samples))
             #########
             self.subsets[y] = Subset(
                 self,
