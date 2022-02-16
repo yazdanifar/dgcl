@@ -28,10 +28,10 @@ train:
               [ 'mnist', 4, 4,'u', 1, 60 ], [ 'mnist', 5, 4,'u', 1, 60 ],
               [ 'mnist', 6, 4,'u', 1, 60 ], [ 'mnist', 7, 4,'u', 1, 60 ],
               [ 'mnist', 8, 4,'u', 1, 60 ], [ 'mnist', 9, 4,'u', 1, 60 ]]
-    epochs: 12
+    epochs: 500
 
 test:
-  include-training-task: False
+  include-training-task: True
   tasks:
     - subsets: [ [ 'mnist', 0, 5, 75], [ 'mnist', 1, 5, 75],
                  [ 'mnist', 2, 5, 75], [ 'mnist', 3, 5, 75],

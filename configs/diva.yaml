@@ -25,8 +25,9 @@ d_dim: 6
 sample_per_class: 100
 
 device: 'cuda'
+disable_profiler: True
 testing_mode: True
-model_name: 'OurDIVA'
+model_name: 'DIVA'
 recon_loss: 'bernouiiilli'
 
 ###########
@@ -36,13 +37,13 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: True
 print_times: False
 
-eval_per_task: 12
-eval_step:
-initial_evaluation: False
+eval_per_task:
+eval_step: 1500
+initial_evaluation: True
 eval_in_task_change: False
 
-summary_per_task: 12
-summary_step:
+summary_per_task:
+summary_step: 24000
 summarize_samples: True
 
 training_loss_step: 10
@@ -52,7 +53,7 @@ training_loss_step: 10
 ##########
 enable_replay: True
 replay_batch_size: 256
-replay_ratio: 1
+replay_ratio: 0
 replay_loss_multiplier: 1
 equal_loss_scale: False
 scale_replay_loss_wrt_num_tasks: True
@@ -83,7 +84,7 @@ model:
   beta_x: 1
   beta_y: 1
 
-  warm_up: 0.3
+  warm_up: 0.2
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')

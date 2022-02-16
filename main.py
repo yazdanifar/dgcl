@@ -13,10 +13,13 @@ from data import DataScheduler
 from models.our_diva.ClOf import ClOf
 from models.our_diva.our_diva import OurDIVA
 from train import train_model
+from models.diva.diva import DIVA
+from monitoring import FakeProfiler
 
 MODEL = {
     "OurDIVA": OurDIVA,
-    "ClOf": ClOf
+    "ClOf": ClOf,
+    "DIVA": DIVA
 }
 
 parser = ArgumentParser()
@@ -108,16 +111,7 @@ def main():
         record_shapes=True,
         with_stack=True)
     else:
-        prof = torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-        schedule = torch.profiler.schedule(skip_first=10000000000, wait=51, warmup=2, active=7,
-                                           repeat=4),
-        on_trace_ready = torch.profiler.tensorboard_trace_handler(config['log_dir']),
-        record_shapes = True,
-        with_stack = True)
+        prof = FakeProfiler()
 
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))

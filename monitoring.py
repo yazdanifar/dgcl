@@ -237,3 +237,13 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
                 x = model.generate_supervised_image(d_n, y).detach()
                 writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
+
+class FakeProfiler:
+    def step(self):
+        pass
+
+    def start(self):
+        pass
+
+    def close(self):
+        pass
