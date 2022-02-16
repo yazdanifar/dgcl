@@ -36,6 +36,9 @@ from tensorboardX import SummaryWriter
 
 class DataScheduler(Iterator):
     def __init__(self, config):
+        self.sup_dataloader = None
+        self.unsup_dataloader = None
+
         self.config = config
         self.device = config['device']
         self.class_num = config['y_dim']
@@ -176,121 +179,134 @@ class DataScheduler(Iterator):
             data, unsup = self.get_data()
         except StopIteration:
             # Progress to next stage
-            self.stage += 1
-            self.step = 0
-            print('\nProgressing to stage %d' % self.stage)
-            if self.stage >= len(self.schedule['train']):
-                raise StopIteration
-
-            stage = self.schedule['train'][self.stage]
-            collate_fn = list(self.datasets[True].values())[0].collate_fn  # train = True
-            sup_subsets = []
-            unsup_subsets = []
-            for j, subset in enumerate(stage['subsets']):
-                dataset = self.get_subset_instance(subset)  # type:ProxyDataset
-
-                if dataset.supervised:
-                    sup_subsets.append(dataset)
-                else:
-                    unsup_subsets.append(dataset)
-
-            sup_dataset = None
-            unsup_dataset = None
-            if len(sup_subsets) > 0:
-                sup_dataset = ConcatDataset(sup_subsets)
-                # print('sup dataset len', len(sup_dataset))
-            if len(unsup_subsets) > 0:
-                unsup_dataset = ConcatDataset(unsup_subsets)
-                # print('unsup dataset len', len(unsup_dataset))
-
-            # Determine sampler
-            if 'samples' in stage:
-                if sup_dataset is not None:
-                    sup_sampler = RandomSampler(
-                        sup_dataset,
-                        replacement=True,
-                        num_samples=stage['samples']
-                    )
-                if unsup_dataset is not None:
-                    unsup_sampler = RandomSampler(
-                        unsup_dataset,
-                        replacement=True,
-                        num_samples=stage['samples']
-                    )
-            elif 'steps' in stage:
-                if sup_dataset is not None:
-                    sup_sampler = RandomSampler(
-                        sup_dataset,
-                        replacement=True,
-                        num_samples=stage['steps'] * self.config['batch_size']
-                    )
-                if unsup_dataset is not None:
-                    unsup_sampler = RandomSampler(
-                        unsup_dataset,
-                        replacement=True,
-                        num_samples=stage['steps'] * self.config['batch_size']
-                    )
-            elif 'epochs' in stage:
-                if sup_dataset is not None:
-                    sup_sampler = RandomSampler(
-                        sup_dataset,
-                        replacement=True,
-                        num_samples=(int(stage['epochs'] * len(sup_dataset))
-                                     + len(sup_dataset) % self.config['batch_size'])
-                    )
-                if unsup_dataset is not None:
-                    unsup_sampler = RandomSampler(
-                        unsup_dataset,
-                        replacement=True,
-                        num_samples=(int(stage['epochs'] * len(unsup_dataset))
-                                     + len(unsup_dataset) % self.config['batch_size'])
-                    )
+            if (self.sup_dataloader is not None) or (self.unsup_dataloader is not None):
+                print("next epoch")
+                if self.sup_dataloader is not None:
+                    self.sup_iterator = iter(self.sup_dataloader)
+                if self.unsup_dataloader is not None:
+                    self.unsup_iterator = iter(self.unsup_dataloader)
             else:
-                if sup_dataset is not None:
-                    sup_sampler = RandomSampler(sup_dataset)
-                if unsup_dataset is not None:
-                    unsup_sampler = RandomSampler(unsup_dataset)
-            if sup_dataset is not None:
-                self.sup_iterator = iter(DataLoader(
-                    sup_dataset,
-                    batch_size=self.config['batch_size'],
-                    num_workers=self.config['num_workers'],
-                    collate_fn=collate_fn,
-                    sampler=sup_sampler,
-                    drop_last=False,
-                    pin_memory=True
-                ))
-            if unsup_dataset is not None:
-                self.unsup_iterator = iter(DataLoader(
-                    unsup_dataset,
-                    batch_size=self.config['batch_size'],
-                    num_workers=self.config['num_workers'],
-                    collate_fn=collate_fn,
-                    sampler=unsup_sampler,
-                    drop_last=False,
-                    pin_memory=True
-                ))
+                self.stage += 1
+                self.step = 0
+                print('\nProgressing to stage %d' % self.stage)
+                if self.stage >= len(self.schedule['train']):
+                    raise StopIteration
 
-            if sup_dataset is None:
-                self.unsup_portion = 1
-            elif unsup_dataset is None:
-                self.unsup_portion = 0
-            else:
-                self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
-                self.supervised_period = 1
-                self.unsupervised_period = 1
-                if self.unsup_portion > 0.5:
-                    self.supervised_period = int(1 / (1 - self.unsup_portion))
-                    if self.supervised_period != 1 / (1 - self.unsup_portion):
-                        print(self.unsup_portion,
-                              "we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
-                        raise ValueError
+                stage = self.schedule['train'][self.stage]
+                collate_fn = list(self.datasets[True].values())[0].collate_fn  # train = True
+                sup_subsets = []
+                unsup_subsets = []
+                for j, subset in enumerate(stage['subsets']):
+                    dataset = self.get_subset_instance(subset)  # type:ProxyDataset
+
+                    if dataset.supervised:
+                        sup_subsets.append(dataset)
+                    else:
+                        unsup_subsets.append(dataset)
+
+                sup_dataset = None
+                unsup_dataset = None
+                if len(sup_subsets) > 0:
+                    sup_dataset = ConcatDataset(sup_subsets)
+                    # print('sup dataset len', len(sup_dataset))
+                if len(unsup_subsets) > 0:
+                    unsup_dataset = ConcatDataset(unsup_subsets)
+                    # print('unsup dataset len', len(unsup_dataset))
+
+                # # Determine sampler
+                # if 'samples' in stage:
+                #     if sup_dataset is not None:
+                #         sup_sampler = RandomSampler(
+                #             sup_dataset,
+                #             replacement=True,
+                #             num_samples=stage['samples']
+                #         )
+                #     if unsup_dataset is not None:
+                #         unsup_sampler = RandomSampler(
+                #             unsup_dataset,
+                #             replacement=True,
+                #             num_samples=stage['samples']
+                #         )
+                # elif 'steps' in stage:
+                #     if sup_dataset is not None:
+                #         sup_sampler = RandomSampler(
+                #             sup_dataset,
+                #             replacement=True,
+                #             num_samples=stage['steps'] * self.config['batch_size']
+                #         )
+                #     if unsup_dataset is not None:
+                #         unsup_sampler = RandomSampler(
+                #             unsup_dataset,
+                #             replacement=True,
+                #             num_samples=stage['steps'] * self.config['batch_size']
+                #         )
+                # elif 'epochs' in stage:
+                #     if sup_dataset is not None:
+                #         sup_sampler = RandomSampler(
+                #             sup_dataset,
+                #             replacement=True,
+                #             num_samples=(int(stage['epochs'] * len(sup_dataset))
+                #                          + len(sup_dataset) % self.config['batch_size'])
+                #         )
+                #     if unsup_dataset is not None:
+                #         unsup_sampler = RandomSampler(
+                #             unsup_dataset,
+                #             replacement=True,
+                #             num_samples=(int(stage['epochs'] * len(unsup_dataset))
+                #                          + len(unsup_dataset) % self.config['batch_size'])
+                #         )
+                # else:
+                #     if sup_dataset is not None:
+                #         sup_sampler = RandomSampler(sup_dataset)
+                #     if unsup_dataset is not None:
+                #         unsup_sampler = RandomSampler(unsup_dataset)
+                if sup_dataset is not None:
+                    self.sup_dataloader = DataLoader(
+                        sup_dataset,
+                        batch_size=self.config['batch_size'],
+                        num_workers=self.config['num_workers'],
+                        collate_fn=collate_fn,
+                        # sampler=sup_sampler,
+                        # drop_last=True,
+                        pin_memory=True,
+                        shuffle=True
+                    )
+                    self.sup_iterator = iter(self.sup_dataloader)
+                if unsup_dataset is not None:
+                    self.unsup_dataloader = DataLoader(
+                        unsup_dataset,
+                        batch_size=self.config['batch_size'],
+                        num_workers=self.config['num_workers'],
+                        collate_fn=collate_fn,
+                        # sampler=unsup_sampler,
+                        # drop_last=False,
+                        pin_memory=True,
+                        shuffle=True
+                    )
+                    self.unsup_iterator = iter(self.unsup_dataloader)
+
+                if sup_dataset is None:
+                    self.unsup_portion = 1
+                elif unsup_dataset is None:
+                    self.unsup_portion = 0
                 else:
-                    self.unsupervised_period = int(1 / self.unsup_portion)
-                    if self.unsupervised_period != 1 / self.unsup_portion:
-                        print("we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
-                        raise ValueError
-            print("in this stage unsup portion to all baches is:", round(self.unsup_portion, 3))
+                    self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
+                    self.supervised_period = 1
+                    self.unsupervised_period = 1
+                    if self.unsup_portion > 0.5:
+                        self.supervised_period = int(1 / (1 - self.unsup_portion))
+                        if self.supervised_period != 1 / (1 - self.unsup_portion):
+                            print(self.unsup_portion,
+                                  "we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
+                            raise ValueError
+                    else:
+                        self.unsupervised_period = int(1 / self.unsup_portion)
+                        if self.unsupervised_period != 1 / self.unsup_portion:
+                            print(
+                                "we use periodic mode, unsupervised portion and supervised portion should castcade by an integer factor")
+                            raise ValueError
+                print("in this stage unsup portion to all baches is:", round(self.unsup_portion, 3))
+
             data, unsup = self.get_data()
 
         # Get next data
@@ -404,7 +420,7 @@ class ProxyDataset(Dataset):
         self.portion = portion
         self.train = train
         self.black_and_white = (config['recon_loss'] == 'bernoulli')
-        self.rotation=rotation
+        self.rotation = rotation
         if dataset_name not in ProxyDataset.datasets[train]:
             inner_dataset = DATASET[dataset_name](config, train=train)
             ProxyDataset.datasets[train][dataset_name] = inner_dataset
