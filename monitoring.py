@@ -245,5 +245,5 @@ class FakeProfiler:
     def start(self):
         pass
 
-    def close(self):
+    def stop(self):
         pass

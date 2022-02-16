@@ -12,6 +12,8 @@ import torch
 import random
 from scipy.io import loadmat
 
+from random import sample
+
 from torch.utils.data import (
     Dataset,
     ConcatDataset,
@@ -487,7 +489,7 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
             list_samples = list((self.targets == y).nonzero().squeeze(1).numpy())
             #########
             if config['sample_per_class']:
-                list_samples = list_samples[:config['sample_per_class']]
+                list_samples = sample(list_samples, config['sample_per_class'])
             #########
             self.subsets[y] = Subset(
                 self,
