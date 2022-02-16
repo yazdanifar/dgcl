@@ -84,7 +84,7 @@ model:
   beta_x: 1
   beta_y: 1
 
-  warm_up: 0.2
+  warm_up: 100
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')

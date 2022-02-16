@@ -404,13 +404,7 @@ class ProxyDataset(Dataset):
         self.portion = portion
         self.train = train
         self.black_and_white = (config['recon_loss'] == 'bernoulli')
-        transform_list = []
-        if rotation is not None:
-            transform_list.append(
-                transforms.RandomRotation(degrees=(rotation, rotation))
-            )
-
-        self.transform = transforms.Compose(transform_list)
+        self.rotation=rotation
         if dataset_name not in ProxyDataset.datasets[train]:
             inner_dataset = DATASET[dataset_name](config, train=train)
             ProxyDataset.datasets[train][dataset_name] = inner_dataset
@@ -427,7 +421,7 @@ class ProxyDataset(Dataset):
 
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
         img, target = self.inner_dataset.__getitem__(index + self.offset)
-        img = self.transform(img)
+        img = transforms.functional.rotate(img, self.rotation)
         if self.black_and_white:
             img = (0.5 < img).to(torch.float)
 
