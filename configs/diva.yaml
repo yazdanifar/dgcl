@@ -4,9 +4,9 @@
 
 data_root: 'data_files'
 batch_size: 100
-num_workers: 2
+num_workers: 0
 eval_batch_size: 1024
-eval_num_workers: 2
+eval_num_workers: 0
 
 label_offset:
   mnist: 0
