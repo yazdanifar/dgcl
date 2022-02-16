@@ -24,6 +24,7 @@ y_dim: 10
 d_dim: 6
 
 device: 'cuda'
+disable_profiler: True
 testing_mode: True
 model_name: 'OurDIVA'
 recon_loss: 'bernouiiilli'

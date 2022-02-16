@@ -96,16 +96,28 @@ def main():
     model = MODEL[config['model_name']](config, writer, config['device'])
     model.to(config['device'])
 
-    prof = torch.profiler.profile(
-        activities=[
-            torch.profiler.ProfilerActivity.CPU,
-            torch.profiler.ProfilerActivity.CUDA,
-        ],
+    if not config['disable_profiler']:
+        prof = torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
         schedule=torch.profiler.schedule(skip_first=17 + data_scheduler.task_step[0] * 5, wait=51, warmup=2, active=7,
                                          repeat=4),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(config['log_dir']),
         record_shapes=True,
         with_stack=True)
+    else:
+        prof = torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+        schedule = torch.profiler.schedule(skip_first=10000000000, wait=51, warmup=2, active=7,
+                                           repeat=4),
+        on_trace_ready = torch.profiler.tensorboard_trace_handler(config['log_dir']),
+        record_shapes = True,
+        with_stack = True)
 
     if model_load_path is not None:
         model.load_state_dict(torch.load(model_load_path))
