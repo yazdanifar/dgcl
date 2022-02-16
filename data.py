@@ -484,6 +484,41 @@ class ClassificationDataset(Dataset, ABC):
 # =================
 # Concrete Datasets
 # =================
+class MNISTSMALL(torchvision.datasets.MNIST, ClassificationDataset):
+    name = 'mnist_small'
+    num_classes = 10
+
+    def __init__(self, config, train=True):
+
+        # Compose transformation
+        transform_list = [
+            transforms.Resize((config['x_h'], config['x_w'])),
+            transforms.ToTensor(),
+        ]
+        if config['x_c'] > 1:
+            transform_list.append(
+                lambda x: x.expand(config['x_c'], -1, -1)
+            )
+        transform = transforms.Compose(transform_list)
+
+        # Initialize super classes
+        torchvision.datasets.MNIST.__init__(
+            self, root=os.path.join(config['data_root'], 'mnist'),
+            train=train, transform=transform, download=True)
+        ClassificationDataset.__init__(self, config, train)
+
+        # Create subset for each class
+        all_samples = list(np.load('rotated_mnist/supervised_inds_' + str(config['model']['seed']) + '.npy'))
+        for y in range(self.num_classes):
+            list_samples_class_y = list((self.targets == y).nonzero().squeeze(1).numpy())
+            list_samples=list(set(all_samples).intersection(list_samples_class_y))
+            print(len(list_samples))
+            print(len(list_samples))
+            self.subsets[y] = Subset(
+                self,
+                list_samples
+            )
+        self.offset_label()
 
 
 class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
@@ -512,10 +547,6 @@ class MNIST(torchvision.datasets.MNIST, ClassificationDataset):
         # Create subset for each class
         for y in range(self.num_classes):
             list_samples = list((self.targets == y).nonzero().squeeze(1).numpy())
-            #########
-            if config['sample_per_class']:
-                list_samples = list_samples[:config['sample_per_class']]
-            #########
             self.subsets[y] = Subset(
                 self,
                 list_samples
@@ -750,6 +781,7 @@ class CIFAR100(torchvision.datasets.CIFAR100, ClassificationDataset):
 
 
 DATASET = {
+    MNISTSMALL.name: MNISTSMALL,
     MNIST.name: MNIST,
     SVHN.name: SVHN,
     USPS.name: USPS,
