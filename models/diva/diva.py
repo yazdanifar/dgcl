@@ -7,7 +7,6 @@ from tensorboardX import SummaryWriter
 
 
 ### Follows model as seen in LEARNING ROBUST REPRESENTATIONS BY PROJECTING SUPERFICIAL STATISTICS OUT
-
 # Decoders
 class px(nn.Module):
     def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
@@ -15,11 +14,9 @@ class px(nn.Module):
 
         self.fc1 = nn.Sequential(nn.Linear(zd_dim + zx_dim + zy_dim, 1024, bias=False), nn.BatchNorm1d(1024), nn.ReLU())
         self.up1 = nn.Upsample(8)
-        self.de1 = nn.Sequential(nn.ConvTranspose2d(64, 128, kernel_size=5, stride=1, padding=0, bias=False),
-                                 nn.BatchNorm2d(128), nn.ReLU())
+        self.de1 = nn.Sequential(nn.ConvTranspose2d(64, 128, kernel_size=5, stride=1, padding=0, bias=False), nn.BatchNorm2d(128), nn.ReLU())
         self.up2 = nn.Upsample(24)
-        self.de2 = nn.Sequential(nn.ConvTranspose2d(128, 256, kernel_size=5, stride=1, padding=0, bias=False),
-                                 nn.BatchNorm2d(256), nn.ReLU())
+        self.de2 = nn.Sequential(nn.ConvTranspose2d(128, 256, kernel_size=5, stride=1, padding=0, bias=False), nn.BatchNorm2d(256), nn.ReLU())
         self.de3 = nn.Sequential(nn.Conv2d(256, 256, kernel_size=1, stride=1))
 
         torch.nn.init.xavier_uniform_(self.fc1[0].weight)
@@ -248,66 +245,66 @@ class DIVA(nn.Module):
 
         self.cuda()
 
-    def get_image_by_recon(self, x):
-        x_shape = x.cpu().shape
-        batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
-        recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
-        sample = torch.zeros(batch_size, 1, h, w).cuda()
+    # def get_image_by_recon(self, x):
+    #     x_shape = x.cpu().shape
+    #     batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
+    #     recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
+    #     sample = torch.zeros(batch_size, 1, h, w).cuda()
+    #
+    #     for i in range(h):
+    #         for j in range(w):
+    #
+    #             # out[:, :, i, j]
+    #             probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
+    #
+    #             # Sample single pixel (each channel independently)
+    #             for k in range(1):
+    #                 val, ind = torch.max(probs[:, k], dim=1)
+    #                 sample[:, k, i, j] = ind.squeeze().float() / 255.
+    #
+    #     return sample
 
-        for i in range(h):
-            for j in range(w):
+    # def get_replay_batch(self, learned_class, batch_size):
+    #     choices = np.random.choice(np.arange(len(learned_class)), batch_size)
+    #     # we could replay based on some thing diffrent
+    #     # (if ew forgot a task we could put more sample
+    #     #  from that task in the batch) p!=uniform
+    #     y = np.zeros(batch_size).astype(int)
+    #     d = np.zeros(batch_size).astype(int)
+    #     for i in range(batch_size):
+    #         d[i], y[i] = learned_class[choices[i]]
+    #
+    #     with torch.no_grad():
+    #         x = self.generate_supervised_image(d, y)
+    #
+    #     y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
+    #     return x, y, d
 
-                # out[:, :, i, j]
-                probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
-
-                # Sample single pixel (each channel independently)
-                for k in range(1):
-                    val, ind = torch.max(probs[:, k], dim=1)
-                    sample[:, k, i, j] = ind.squeeze().float() / 255.
-
-        return sample
-
-    def get_replay_batch(self, learned_class, batch_size):
-        choices = np.random.choice(np.arange(len(learned_class)), batch_size)
-        # we could replay based on some thing diffrent
-        # (if ew forgot a task we could put more sample
-        #  from that task in the batch) p!=uniform
-        y = np.zeros(batch_size).astype(int)
-        d = np.zeros(batch_size).astype(int)
-        for i in range(batch_size):
-            d[i], y[i] = learned_class[choices[i]]
-
-        with torch.no_grad():
-            x = self.generate_supervised_image(d, y)
-
-        y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
-        return x, y, d
-
-    def generate_supervised_image(self, d, y):
-        assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
-        d_eye = torch.eye(self.d_dim)
-        y_eye = torch.eye(self.y_dim)
-        y = y_eye[y]
-        d = d_eye[d]
-        y, d = y.to(self.device), d.to(self.device)
-        batch_size = len(d)
-        zd_p_loc, zd_p_scale = self.pzd(d)
-        zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim).cuda(), torch.ones(batch_size, self.zx_dim).cuda()
-        zy_p_loc, zy_p_scale = self.pzy(y)
-
-        # Reparameterization trick
-        pzd = dist.Normal(zd_p_loc, zd_p_scale)
-        zd_p = pzd.rsample()
-
-        pzx = dist.Normal(zx_p_loc, zx_p_scale)
-        zx_p = pzx.rsample()
-
-        pzy = dist.Normal(zy_p_loc, zy_p_scale)
-        zy_p = pzy.rsample()
-
-        x_recon = self.px(zd_p, zx_p, zy_p)
-        x_recon = self.get_image_by_recon(x_recon)
-        return x_recon
+    # def generate_supervised_image(self, d, y):
+    #     assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
+    #     d_eye = torch.eye(self.d_dim)
+    #     y_eye = torch.eye(self.y_dim)
+    #     y = y_eye[y]
+    #     d = d_eye[d]
+    #     y, d = y.to(self.device), d.to(self.device)
+    #     batch_size = len(d)
+    #     zd_p_loc, zd_p_scale = self.pzd(d)
+    #     zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim).cuda(), torch.ones(batch_size, self.zx_dim).cuda()
+    #     zy_p_loc, zy_p_scale = self.pzy(y)
+    #
+    #     # Reparameterization trick
+    #     pzd = dist.Normal(zd_p_loc, zd_p_scale)
+    #     zd_p = pzd.rsample()
+    #
+    #     pzx = dist.Normal(zx_p_loc, zx_p_scale)
+    #     zx_p = pzx.rsample()
+    #
+    #     pzy = dist.Normal(zy_p_loc, zy_p_scale)
+    #     zy_p = pzy.rsample()
+    #
+    #     x_recon = self.px(zd_p, zx_p, zy_p)
+    #     x_recon = self.get_image_by_recon(x_recon)
+    #     return x_recon
 
     def forward(self, d, x, y):
         # Encode
@@ -335,7 +332,7 @@ class DIVA(nn.Module):
         zd_p_loc, zd_p_scale = self.pzd(d)
 
         if self.zx_dim != 0:
-            zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
+            zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(),\
                                    torch.ones(zd_p_loc.size()[0], self.zx_dim).cuda()
         zy_p_loc, zy_p_scale = self.pzy(y)
 
@@ -355,10 +352,8 @@ class DIVA(nn.Module):
 
     def loss_function(self, d, x, y=None):
         if y is None:  # unsupervised
-            batch_size = x.shape[0]
             # Do standard forward pass for everything not involving y
             zd_q_loc, zd_q_scale = self.qzd(x)
-
             if self.zx_dim != 0:
                 zx_q_loc, zx_q_scale = self.qzx(x)
             zy_q_loc, zy_q_scale = self.qzy(x)
@@ -372,6 +367,7 @@ class DIVA(nn.Module):
                 zx_q = None
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
             zy_q = qzy.rsample()
+
             zd_p_loc, zd_p_scale = self.pzd(d)
             if self.zx_dim != 0:
                 zx_p_loc, zx_p_scale = torch.zeros(zd_p_loc.size()[0], self.zx_dim).cuda(), \
@@ -385,12 +381,14 @@ class DIVA(nn.Module):
                 pzx = None
 
             d_hat = self.qd(zd_q)
-            x_recon = self.px(zd_q, zx_q, zy_q)
-            x_recon = x_recon.view(-1, 256)  # what is 256?(image generation batch)
-            x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
-            CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
-            zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
 
+            x_recon = self.px(zd_q, zx_q, zy_q)
+
+            x_recon = x_recon.view(-1, 256)
+            x_target = (x.view(-1) * 255).long()
+            CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
+
+            zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
             if self.zx_dim != 0:
                 KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
             else:
@@ -399,20 +397,18 @@ class DIVA(nn.Module):
             _, d_target = d.max(dim=1)
             CE_d = F.cross_entropy(d_hat, d_target, reduction='sum')
 
+
             # Create labels and repeats of zy_q and qzy
-            y_onehot = torch.eye(self.class_num)  # what is 10?(class num)
-            y_onehot = y_onehot.repeat(1, batch_size)  # what is 100?(repeat)
-            y_onehot = y_onehot.view(batch_size * self.class_num,
-                                     self.class_num).cuda()  # what is 1000,10?(class*repeat, class)
+            y_onehot = torch.eye(10)
+            y_onehot = y_onehot.repeat(1, 100)
+            y_onehot = y_onehot.view(1000, 10).cuda()
 
-            zy_q = zy_q.repeat(self.class_num, 1)  # what is 10?(batch * this = class * repeat)(B)
-
-            zy_q_loc, zy_q_scale = zy_q_loc.repeat(self.class_num, 1), zy_q_scale.repeat(self.class_num, 1)
+            zy_q = zy_q.repeat(10, 1)
+            zy_q_loc, zy_q_scale = zy_q_loc.repeat(10, 1), zy_q_scale.repeat(10, 1)
             qzy = dist.Normal(zy_q_loc, zy_q_scale)
 
             # Do forward pass for everything involving y
-            zy_p_loc, zy_p_scale = self.pzy(
-                y_onehot)  # TODO: why you should first repeat 100 times then forward pass it not in reverse?!
+            zy_p_loc, zy_p_scale = self.pzy(y_onehot)
 
             # Reparameterization trick
             pzy = dist.Normal(zy_p_loc, zy_p_scale)
@@ -429,9 +425,10 @@ class DIVA(nn.Module):
 
             marginal_zy_p_minus_zy_q = torch.sum(prob_qy * zy_p_minus_zy_q)
 
-            prior_y = torch.tensor(1 / self.class_num).cuda()  # what is 10?(class num) need change!
+            prior_y = torch.tensor(1/10).cuda()
             prior_y_minus_qy = torch.log(prior_y) - qy.log_prob(y_onehot)
             marginal_prior_y_minus_qy = torch.sum(prob_qy * prior_y_minus_qy)
+
             return CE_x \
                    - self.beta_d * zd_p_minus_zd_q \
                    - self.beta_x * KL_zx \
@@ -439,11 +436,11 @@ class DIVA(nn.Module):
                    - marginal_prior_y_minus_qy \
                    + self.aux_loss_multiplier_d * CE_d, 0
 
-        else:  # supervised
+        else: # supervised
             x_recon, d_hat, y_hat, qzd, pzd, zd_q, qzx, pzx, zx_q, qzy, pzy, zy_q = self.forward(d, x, y)
 
-            x_recon = x_recon.view(-1, 256)  # what is 256? (image generation batch)
-            x_target = (x.view(-1) * 255).long()  # 255 is pixel scale
+            x_recon = x_recon.view(-1, 256)
+            x_target = (x.view(-1) * 255).long()
             CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
 
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
@@ -465,7 +462,7 @@ class DIVA(nn.Module):
                    - self.beta_x * KL_zx \
                    - self.beta_y * zy_p_minus_zy_q \
                    + self.aux_loss_multiplier_d * CE_d \
-                   + self.aux_loss_multiplier_y * CE_y, \
+                   + self.aux_loss_multiplier_y * CE_y,\
                    CE_y
 
     def classifier(self, x):

@@ -39,11 +39,11 @@ print_times: False
 
 eval_per_task:
 eval_step: 1500
-initial_evaluation: True
+initial_evaluation: False
 eval_in_task_change: False
 
 summary_per_task:
-summary_step: 24000
+summary_step: 26000
 summarize_samples: True
 
 training_loss_step: 10
