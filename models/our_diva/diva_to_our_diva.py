@@ -15,10 +15,9 @@ from models.our_diva.our_diva import Qd, Qy, Qzd, Qzx, Qzy, Pzd, Pzy, Px, Freeza
 from models.diva.diva import px, pzd, pzy, qy, qd, qzy, qzd, qzx
 from models.our_diva.px import convpx
 
-class DIVAtoOurDIVA(nn.Module):
-    def __init__(self, args, writer: SummaryWriter, device):
-        super(DIVAtoOurDIVA, self).__init__()
-        self.name = "OurDIVAtoOurDiva"
+
+class Factory:
+    def __init__(self, args, device):
         self.device = device
         self.use_diva_modules = True
         self.use_KL_close = False
@@ -26,10 +25,11 @@ class DIVAtoOurDIVA(nn.Module):
         self.freeze_classifiers = False
         self.freeze_priors = False
         self.use_discriminator = False
-
         model_config = args['model']
+        self.args = args
 
-        self.recon_loss = model_config['recon_loss']  # "MSE" "cross_entropy"
+        self.model_config = model_config
+        self.recon_loss_type = model_config['recon_loss']  # "MSE" "cross_entropy"
         self.zd_dim = model_config['zd_dim']
         self.zx_dim = model_config['zx_dim']
         self.zy_dim = model_config['zy_dim']
@@ -39,64 +39,133 @@ class DIVAtoOurDIVA(nn.Module):
         self.x_dim = args['x_h'] * args['x_w']
         self.y_dim = args['y_dim']
 
-        self.class_num = args['y_dim']
+    def get_px(self):
+        if self.model_config['px_use_diva_conv']:
+            return px(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        elif self.model_config['px_use_our_conv']:
+            return convpx(self.d_dim, self.x_w, self.x_h, self.x_c, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        else:
+            return Px(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+
+    def recon_loss(self, x_recon, x):
+        if self.model_config['px_use_diva_conv']:
+            x_recon = x_recon.view(-1, 256)
+            x_target = (x.view(-1) * 255).long()
+            return F.cross_entropy(x_recon, x_target, reduction='sum')
+        elif self.recon_loss_type == "cross_entropy":
+            return F.binary_cross_entropy(x_recon, x, reduction='sum') * 9
+        elif self.recon_loss_type == "MSE":
+            return torch.nn.MSELoss(reduction='sum')(x_recon, x)
+        else:
+            raise NotImplementedError
+
+    def get_discriminator_y(self):
+        if self.model_config['use_discriminator_y']:
+            return Discriminator(self.zd_dim, self.y_dim)
+        else:
+            return None
+
+    def discriminator_d_loss(self, zy_q):
+        if self.model_config['use_discriminator_y']:
+            raise NotImplementedError  # ce_y_discriminator = F.cross_entropy(self.discriminator_y(zd_q), y_target, reduction='sum')
+        return 0
+
+    def get_discriminator_d(self):
+        if self.model_config['use_discriminator_d']:
+            return Discriminator(self.zy_dim, self.d_dim)
+        else:
+            return None
+
+    def discriminator_y_loss(self, zd_q):
+        if self.model_config['use_discriminator_d']:
+            raise NotImplementedError  # ce_d_discriminator = F.cross_entropy(self.discriminator_d(zy_q), d_target, reduction='sum')
+        return 0
+
+    def get_pzd(self, learned_domain):
+        if self.model_config['use_diva_pzd']:
+            return pzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        elif self.model_config['freeze_pzd']:
+            return FreezablePzd(self.d_dim, self.zd_dim, learned_domain)
+        else:
+            return Pzd(self.d_dim, self.zd_dim)
+
+    def get_pzy(self, learned_domain):
+        if self.model_config['use_diva_pzy']:
+            return pzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        elif self.model_config['freeze_pzy']:
+            return FreezablePzd(self.d_dim, self.zd_dim, learned_domain)
+        else:
+            return Pzy(self.d_dim, self.zd_dim)
+
+    def get_qzd(self):
+        if self.model_config['use_diva_qzd']:
+            return qzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        else:
+            return Qzd(self.x_dim, self.zd_dim)
+
+    def get_qzx(self):
+        if self.zx_dim == 0:
+            return None
+        if self.model_config['use_diva_qzx']:
+            return qzx(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        else:
+            return Qzx(self.x_dim, self.zx_dim)
+
+    def get_qzy(self):
+        if self.model_config['use_diva_qzy']:
+            return qzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        else:
+            return Qzy(self.x_dim, self.zy_dim)
+
+    def get_qd(self, learned_domain, pzd):
+        if self.model_config['use_diva_qd']:
+            return qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        elif self.model_config['use_bayes_qd']:
+            return Qd(self.d_dim, pzd, self.device)
+        elif self.model_config['freeze_qd']:
+            return FreezableDomainClassifier(self.zd_dim, self.d_dim, learned_domain)
+        else:
+            return LinearClassifier(self.zd_dim, self.d_dim)
+
+    def get_qy(self, learned_domain, pzy):
+        if self.model_config['use_diva_qy']:
+            return qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
+        elif self.model_config['use_bayes_qy']:
+            return Qy(self.y_dim, pzy, self.device)
+        elif self.model_config['freeze_qy']:
+            return FreezableLabelClassifier(self.zy_dim, self.y_dim, learned_domain)
+        else:
+            return LinearClassifier(self.zy_dim, self.y_dim)
+
+
+class DIVAtoOurDIVA(nn.Module):
+    def __init__(self, args, writer: SummaryWriter, device):
+        super(DIVAtoOurDIVA, self).__init__()
+        f = Factory(args, device)
+        self.name = "OurDIVAtoOurDiva"
+        self.device = device
+        self.use_KL_close = False
+
+        model_config = args['model']
+
+        self.zx_dim = model_config['zx_dim']
+        self.d_dim = args['d_dim']
+        self.y_dim = args['y_dim']
+
         self.writer = writer
 
-        self.start_zx = self.zd_dim
-        self.start_zy = self.zd_dim + self.zx_dim
-
         self.learned_domain = nn.Parameter(torch.zeros(self.d_dim, device=self.device), requires_grad=False)
-
-        if self.use_diva_modules and 1==0:
-            self.px = px(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        else:
-            # self.px = Px(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
-            self.px = convpx(self.d_dim, self.x_w, self.x_h, self.x_c, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-
-        if self.use_diva_modules:
-            self.discriminator_y = None
-            self.discriminator_d = None
-        else:
-            self.discriminator_y = Discriminator(self.zd_dim, self.y_dim)
-            self.discriminator_d = Discriminator(self.zy_dim, self.d_dim)
-
-        if self.use_diva_modules:
-            self.pzd = pzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-            self.pzy = pzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        elif self.freeze_priors:
-            self.pzd = FreezablePzd(self.d_dim, self.zd_dim, self.learned_domain)
-            self.pzy = FreezablePzy(self.y_dim, self.zy_dim, self.learned_domain)
-        else:
-            self.pzd = Pzd(self.d_dim, self.zd_dim)
-            self.pzy = Pzy(self.y_dim, self.zy_dim)
-
-        if self.use_diva_modules:
-            self.qzd = qzd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        else:
-            self.qzd = Qzd(self.x_dim, self.zd_dim)
-
-        if self.use_diva_modules:
-            if self.zx_dim != 0:
-                self.qzx = qzx(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-            self.qzy = qzy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        else:
-            if self.zx_dim != 0:
-                self.qzx = Qzx(self.x_dim, self.zx_dim)
-            self.qzy = Qzy(self.x_dim, self.zy_dim)
-
-        if self.use_diva_modules:
-            self.qd=qd(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-            self.qy=qy(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
-        elif self.use_bayes:
-            self.qd = Qd(self.d_dim, self.pzd, self.device)
-            self.qy = Qy(self.y_dim, self.pzy, self.device)
-        elif self.freeze_classifiers:
-            self.qd = FreezableDomainClassifier(self.zd_dim, self.d_dim, self.learned_domain)
-            self.qy = FreezableLabelClassifier(self.zy_dim, self.y_dim, self.learned_domain)
-        else:
-            self.qd = LinearClassifier(self.zd_dim, self.d_dim)
-            self.qy = LinearClassifier(self.zy_dim, self.y_dim)
-
+        self.px = f.get_px()
+        self.discriminator_y = f.get_discriminator_y()
+        self.discriminator_d = f.get_discriminator_d()
+        self.pzd = f.get_pzd(self.learned_domain)
+        self.pzy = f.get_pzy(self.learned_domain)
+        self.qzd = f.get_qzd()
+        self.qzx = f.get_qzx()
+        self.qzy = f.get_qzy()
+        self.qd = f.get_qd(self.learned_domain, self.pzd)
+        self.qy = f.get_qy(self.learned_domain, self.pzy)
+        self.f = f
 
         self.aux_loss_multiplier_y = model_config['aux_loss_multiplier_y']
         self.aux_loss_multiplier_d = model_config['aux_loss_multiplier_d']
@@ -239,16 +308,7 @@ class DIVAtoOurDIVA(nn.Module):
             d_hat = self.qd(zd_q)
             x_recon = self.px(zd_q, zx_q, zy_q)
 
-            if self.use_diva_modules and 1==0:
-                x_recon = x_recon.view(-1, 256)
-                x_target = (x.view(-1) * 255).long()
-                CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
-            elif self.recon_loss == "cross_entropy":
-                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')*9
-            elif self.recon_loss == "MSE":
-                CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
-            else:
-                raise NotImplementedError
+            CE_x = self.f.recon_loss(x_recon, x)
 
             # print(CE_x.item())
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
@@ -303,16 +363,7 @@ class DIVAtoOurDIVA(nn.Module):
                 , zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
             zy_p_loc, zy_p_scale = self.pzy(y)
 
-            if self.use_diva_modules and 1==0:
-                x_recon = x_recon.view(-1, 256)
-                x_target = (x.view(-1) * 255).long()
-                CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
-            elif self.recon_loss == "cross_entropy":
-                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')*9
-            elif self.recon_loss == "MSE":
-                CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
-            else:
-                raise NotImplementedError
+            CE_x = self.f.recon_loss(x_recon, x)
 
             if self.use_KL_close:
                 zd_p_minus_zd_q = -self.__class__.kl_distribution(zd_q_loc, zd_q_scale, zd_p_loc, zd_p_scale)
@@ -340,12 +391,9 @@ class DIVAtoOurDIVA(nn.Module):
             _, y_target = y.max(dim=1)
             CE_y = F.cross_entropy(y_hat, y_target, reduction='sum')
 
-            if self.use_discriminator:
-                ce_d_discriminator = F.cross_entropy(self.discriminator_d(zy_q), d_target, reduction='sum')
-                ce_y_discriminator = F.cross_entropy(self.discriminator_y(zd_q), y_target, reduction='sum')
-                ce_discriminator = ce_d_discriminator + ce_y_discriminator
-            else:
-                ce_discriminator = 0
+            ce_d_discriminator = self.f.discriminator_d_loss(zy_q)
+            ce_y_discriminator = self.f.discriminator_y_loss(zd_q)
+            ce_discriminator = ce_d_discriminator + ce_y_discriminator
 
             return CE_x \
                    - self.beta_d * zd_p_minus_zd_q \
