@@ -376,11 +376,11 @@ class DataScheduler(Iterator):
             accuracy_y = (accurate_preds_y.item() * 1.0) / dataset_len
 
             writer.add_scalar(
-                'accuracy_d/%s/task_%s_%s' % (eval_title, str(task_id), description),
+                'accuracy_d/task_%s_%s' % (str(task_id), description),
                 accuracy_d, step
             )
             writer.add_scalar(
-                'accuracy_y/%s/task_%s_%s' % (eval_title, str(task_id), description),
+                'accuracy_y/task_%s_%s' % (str(task_id), description),
                 accuracy_y, step
             )
             return accuracy_d, accuracy_y

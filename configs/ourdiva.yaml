@@ -39,7 +39,7 @@ add_time_to_log: True
 print_times: False
 
 eval_per_task:
-eval_step: 1500
+eval_step: 150
 initial_evaluation: False
 eval_in_task_change: False
 
