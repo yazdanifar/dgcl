@@ -512,8 +512,6 @@ class MNISTSMALL(torchvision.datasets.MNIST, ClassificationDataset):
         for y in range(self.num_classes):
             list_samples_class_y = list((self.targets == y).nonzero().squeeze(1).numpy())
             list_samples=list(set(all_samples).intersection(list_samples_class_y))
-            print(len(list_samples))
-            print(len(list_samples))
             self.subsets[y] = Subset(
                 self,
                 list_samples
