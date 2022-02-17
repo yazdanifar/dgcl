@@ -13,7 +13,7 @@ from models.our_diva.our_diva import Qd, Qy, Qzd, Qzx, Qzy, Pzd, Pzy, Px, Freeza
 
 ### Follows model as seen in LEARNING ROBUST REPRESENTATIONS BY PROJECTING SUPERFICIAL STATISTICS OUT
 from models.diva.diva import px, pzd, pzy, qy, qd, qzy, qzd, qzx
-
+from models.our_diva.px import convpx
 
 class DIVAtoOurDIVA(nn.Module):
     def __init__(self, args, writer: SummaryWriter, device):
@@ -47,10 +47,11 @@ class DIVAtoOurDIVA(nn.Module):
 
         self.learned_domain = nn.Parameter(torch.zeros(self.d_dim, device=self.device), requires_grad=False)
 
-        if self.use_diva_modules:
+        if self.use_diva_modules and 1==0:
             self.px = px(self.d_dim, self.x_dim, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
         else:
-            self.px = Px(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+            # self.px = Px(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+            self.px = convpx(self.d_dim, self.x_w, self.x_h, self.x_c, self.y_dim, self.zd_dim, self.zx_dim, self.zy_dim)
 
         if self.use_diva_modules:
             self.discriminator_y = None
@@ -238,17 +239,18 @@ class DIVAtoOurDIVA(nn.Module):
             d_hat = self.qd(zd_q)
             x_recon = self.px(zd_q, zx_q, zy_q)
 
-            if self.use_diva_modules:
+            if self.use_diva_modules and 1==0:
                 x_recon = x_recon.view(-1, 256)
                 x_target = (x.view(-1) * 255).long()
                 CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
             elif self.recon_loss == "cross_entropy":
-                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')*9
             elif self.recon_loss == "MSE":
                 CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
             else:
                 raise NotImplementedError
 
+            # print(CE_x.item())
             zd_p_minus_zd_q = torch.sum(pzd.log_prob(zd_q) - qzd.log_prob(zd_q))
             if self.zx_dim != 0:
                 KL_zx = torch.sum(pzx.log_prob(zx_q) - qzx.log_prob(zx_q))
@@ -301,12 +303,12 @@ class DIVAtoOurDIVA(nn.Module):
                 , zx_q, (zy_q_loc, zy_q_scale), zy_q = self.forward(d, x)
             zy_p_loc, zy_p_scale = self.pzy(y)
 
-            if self.use_diva_modules:
+            if self.use_diva_modules and 1==0:
                 x_recon = x_recon.view(-1, 256)
                 x_target = (x.view(-1) * 255).long()
                 CE_x = F.cross_entropy(x_recon, x_target, reduction='sum')
             elif self.recon_loss == "cross_entropy":
-                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')
+                CE_x = F.binary_cross_entropy(x_recon, x, reduction='sum')*9
             elif self.recon_loss == "MSE":
                 CE_x = torch.nn.MSELoss(reduction='sum')(x_recon, x)
             else:
