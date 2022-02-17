@@ -492,7 +492,7 @@ class MNISTSMALL(torchvision.datasets.MNIST, ClassificationDataset):
         # Initialize super classes
         torchvision.datasets.MNIST.__init__(
             self, root=os.path.join(config['data_root'], 'mnist'),
-            train=train, transform=transform, download=True)
+            train=True, transform=transform, download=True)
         ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
