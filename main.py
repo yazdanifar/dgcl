@@ -47,11 +47,6 @@ def main():
     episode = yaml.load(open(args.episode), Loader=yaml.FullLoader)
     config['data_schedule'] = episode
 
-    seed = config['seed']
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
     # Override options
     for option in args.override.split('|'):
         if not option:
@@ -92,6 +87,11 @@ def main():
     yaml.dump(config, open(config_save_path, 'w'))
     yaml.dump(episode, open(episode_save_path, 'w'))
     print('Config & episode saved to {}'.format(config['log_dir']))
+
+    seed = config['model']['seed']
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     # Build components
     data_scheduler = DataScheduler(config)
