@@ -40,17 +40,17 @@ parser.add_argument('--override', default='')
 
 
 def main():
-    seed = 0
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
     args = parser.parse_args()
 
     # Load config
     config = yaml.load(open(args.config), Loader=yaml.FullLoader)
     episode = yaml.load(open(args.episode), Loader=yaml.FullLoader)
     config['data_schedule'] = episode
+
+    seed = config['seed']
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     # Override options
     for option in args.override.split('|'):
