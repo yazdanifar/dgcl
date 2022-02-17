@@ -180,12 +180,12 @@ def train_model(config, model,
         if step % config['training_loss_step'] == 0:
             if sum_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % (model.name, "normal"),
+                    'training_loss/%s' % "normal",
                     sum_loss / sum_loss_count, step
                 )
             if sum_replay_loss_count != 0:
                 writer.add_scalar(
-                    'training_loss/%s_%s' % (model.name, "replay"),
+                    'training_loss/%s' % "replay",
                     sum_replay_loss / sum_replay_loss_count, step
                 )
             sum_loss = 0
