@@ -251,48 +251,36 @@ class DataScheduler(Iterator):
                     sup_sampler = None
                     unsup_sampler = None
 
+                dataloader_kwargs = {"batch_size": self.config['batch_size'],
+                                     "num_workers": self.config['num_workers'],
+                                     "drop_last": True,
+                                     "pin_memory": True,
+                                     "collate_fn": collate_fn}
+
                 if sup_dataset is not None:
                     if sup_sampler is None:
+                        dataloader_kwargs["shuffle"] = True
                         self.sup_dataloader = DataLoader(
                             sup_dataset,
-                            batch_size=self.config['batch_size'],
-                            num_workers=self.config['num_workers'],
-                            collate_fn=collate_fn,
-                            drop_last=True,
-                            pin_memory=True,
-                            shuffle=True
+                            **dataloader_kwargs
                         )
                     else:
                         self.sup_dataloader = DataLoader(
                             sup_dataset,
-                            batch_size=self.config['batch_size'],
-                            num_workers=self.config['num_workers'],
-                            collate_fn=collate_fn,
-                            sampler=sup_sampler,
-                            drop_last=True,
-                            pin_memory=True
+                            **dataloader_kwargs
                         )
                     self.sup_iterator = iter(self.sup_dataloader)
                 if unsup_dataset is not None:
                     if unsup_sampler is None:
+                        dataloader_kwargs["shuffle"] = True
                         self.unsup_dataloader = DataLoader(
                             unsup_dataset,
-                            batch_size=self.config['batch_size'],
-                            num_workers=self.config['num_workers'],
-                            collate_fn=collate_fn,
-                            drop_last=False,
-                            pin_memory=True,
-                            shuffle=True
+                            **dataloader_kwargs
                         )
                     else:
                         self.unsup_dataloader = DataLoader(
                             unsup_dataset,
-                            batch_size=self.config['batch_size'],
-                            num_workers=self.config['num_workers'],
-                            collate_fn=collate_fn,
-                            sampler=unsup_sampler,
-                            drop_last=False,
-                            pin_memory=True
+                            **dataloader_kwargs
                         )
                     self.unsup_iterator = iter(self.unsup_dataloader)
 
@@ -511,7 +499,7 @@ class MNISTSMALL(torchvision.datasets.MNIST, ClassificationDataset):
         all_samples = list(np.load('rotated_mnist/supervised_inds_' + str(config['model']['seed']) + '.npy'))
         for y in range(self.num_classes):
             list_samples_class_y = list((self.targets == y).nonzero().squeeze(1).numpy())
-            list_samples=list(set(all_samples).intersection(list_samples_class_y))
+            list_samples = list(set(all_samples).intersection(list_samples_class_y))
             self.subsets[y] = Subset(
                 self,
                 list_samples
