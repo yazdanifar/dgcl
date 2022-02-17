@@ -9,6 +9,7 @@ eval_batch_size: 1024
 eval_num_workers: 1
 
 label_offset:
+  mnist_small: 0
   mnist: 0
   svhn: 0
   usps: 0
@@ -27,7 +28,7 @@ sample_per_class: 100
 device: 'cuda'
 disable_profiler: True
 testing_mode: True
-model_name: 'OurDIVA'
+model_name: 'OurDIVAtoOurDiva'
 recon_loss: 'bernouiiilli'
 
 ###########

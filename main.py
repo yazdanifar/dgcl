@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 from data import DataScheduler
 from models.our_diva.ClOf import ClOf
+from models.our_diva.diva_to_our_diva import DIVAtoOurDIVA
 from models.our_diva.our_diva import OurDIVA
 from train import train_model
 from models.diva.diva import DIVA
@@ -19,7 +20,8 @@ from monitoring import FakeProfiler
 MODEL = {
     "OurDIVA": OurDIVA,
     "ClOf": ClOf,
-    "DIVA": DIVA
+    "DIVA": DIVA,
+    "OurDIVAtoOurDiva": DIVAtoOurDIVA
 }
 
 parser = ArgumentParser()
