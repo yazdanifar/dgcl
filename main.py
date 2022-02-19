@@ -67,7 +67,7 @@ def main():
     # Set log directory
     if config['add_time_to_log']:
         current_time = datetime.datetime.now().strftime("_%H_%M_%S")
-        config['log_dir'] = args.log_dir + current_time
+        config['log_dir'] = args.log_dir + config['model_name']+current_time
     else:
         config['log_dir'] = args.log_dir
 

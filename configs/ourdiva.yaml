@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 100
+batch_size: 128
 num_workers: 1
 eval_batch_size: 1024
 eval_num_workers: 1
@@ -23,7 +23,6 @@ x_h: 28
 x_w: 28
 y_dim: 10
 d_dim: 6
-sample_per_class: 100
 
 device: 'cuda'
 disable_profiler: True
@@ -38,13 +37,13 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: True
 print_times: False
 
-eval_per_task:
-eval_step: 150
+eval_per_task: 9
+eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task:
-summary_step: 26000
+summary_per_task: 9
+summary_step:
 summarize_samples: True
 
 training_loss_step: 10
@@ -62,12 +61,15 @@ scale_replay_loss_wrt_num_tasks: True
 # DIVA configs #
 ################
 model:
-  px_use_diva_conv: True
-  px_use_our_conv: False
+  px_use_diva_conv: False
+  px_use_our_conv: True
+
   use_discriminator_y: False
   use_discriminator_d: False
-  use_diva_pzd: True
+
+  use_diva_pzd: False
   freeze_pzd: False
+
   use_diva_pzy: True
   freeze_pzy: False
   use_diva_qzd: True
@@ -82,10 +84,7 @@ model:
   use_bayes_qy: False
   freeze_qy: False
 
-  use_aux_domain: True
-  use_aux_class: True
   recon_loss: 'cross_entropy'
-  freeze_latent_domain: True
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False

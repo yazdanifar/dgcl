@@ -23,7 +23,6 @@ x_h: 28
 x_w: 28
 y_dim: 10
 d_dim: 6
-sample_per_class: 100
 
 device: 'cuda'
 disable_profiler: True
