@@ -32,7 +32,7 @@ def project_to_2d(loc, based_on=None):
     unique_loc, index = torch.unique(loc, dim=0, return_inverse=True)
 
     X_embedded = TSNE(n_components=2, learning_rate='auto', init='random').fit_transform(unique_loc.cpu().numpy())
-    ans=X_embedded[index.cpu().numpy()]
+    ans = X_embedded[index.cpu().numpy()]
     return ans
 
     # pca = decomposition.PCA(n_components=2)
@@ -235,8 +235,11 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
             if len(yy) > 0:
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
                 x = model.generate_supervised_image(d_n, y).detach()
+                if x.shape[1] == 256:
+                    x = torch.argmax(x, dim=1, keepdim=True)
                 writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
+
 
 class FakeProfiler:
     def step(self):
