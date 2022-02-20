@@ -37,12 +37,12 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: True
 print_times: False
 
-eval_per_task: 20
+eval_per_task: 15
 eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 20
+summary_per_task: 15
 summary_step:
 summarize_samples: True
 
