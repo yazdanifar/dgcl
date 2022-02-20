@@ -3,7 +3,7 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 128
+batch_size: 100
 num_workers: 1
 eval_batch_size: 1024
 eval_num_workers: 1
@@ -61,17 +61,18 @@ scale_replay_loss_wrt_num_tasks: True
 # DIVA configs #
 ################
 model:
-  px_use_diva_conv: False
-  px_use_our_conv: True
+  px_use_diva_conv: True
+  px_use_our_conv: False
 
   use_discriminator_y: False
   use_discriminator_d: False
 
-  use_diva_pzd: False
+  use_diva_pzd: True
   freeze_pzd: False
 
   use_diva_pzy: True
   freeze_pzy: False
+
   use_diva_qzd: True
   use_diva_qzy: True
   use_diva_qzx: True
