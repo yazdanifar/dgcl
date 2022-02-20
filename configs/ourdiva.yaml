@@ -42,7 +42,7 @@ eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 15
+summary_per_task: 2
 summary_step:
 summarize_samples: True
 
