@@ -37,12 +37,12 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: True
 print_times: False
 
-eval_per_task: 9
+eval_per_task: 20
 eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 9
+summary_per_task: 20
 summary_step:
 summarize_samples: True
 
@@ -51,7 +51,6 @@ training_loss_step: 10
 ##########
 # Replay #
 ##########
-enable_replay: True
 replay_batch_size: 256
 replay_ratio: 0
 replay_loss_multiplier: 1
@@ -61,31 +60,37 @@ scale_replay_loss_wrt_num_tasks: True
 # DIVA configs #
 ################
 model:
-  px_use_diva_conv: True
-  px_use_our_conv: False
+  px_use_diva_conv: True # DIVA ConvNet
+  px_use_our_conv: False # ConvNet for BCE
+  # O.W: FC is used
+  use_discriminator_y: False # label adversarial discriminator
+  use_discriminator_d: False # adversarial discriminator
 
-  use_discriminator_y: False
-  use_discriminator_d: False
-
-  use_diva_pzd: True
+  use_diva_pzd: True # DIVA's multi-layer pzd
   freeze_pzd: False
+  # O.W: a single layer pzd is used
 
-  use_diva_pzy: True
+  use_diva_pzy: True # DIVA's multi-layer pzy
   freeze_pzy: False
+  # O.W: a single layer pzy is used
 
-  use_diva_qzd: True
-  use_diva_qzy: True
-  use_diva_qzx: True
+  use_diva_qzd: True # O.W: FC is used
+  use_diva_qzy: True # O.W: FC is used
+  use_diva_qzx: True # O.W: FC is used
 
   use_diva_qd: True
   use_bayes_qd: False
   freeze_qd: False
+  # O.W: same classifier as DIVA is returned
+  # except that it's activation is Softmax.
 
   use_diva_qy: True
   use_bayes_qy: False
   freeze_qy: False
+  # O.W: same classifier as DIVA is returned
+  # except that it's activation is Softmax.
 
-  recon_loss: 'cross_entropy'
+  recon_loss: 'BCE'
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False

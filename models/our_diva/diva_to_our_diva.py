@@ -52,7 +52,7 @@ class Factory:
             x_recon = x_recon.view(-1, 256)
             x_target = (x.view(-1) * 255).long()
             return F.cross_entropy(x_recon, x_target, reduction='sum')
-        elif self.recon_loss_type == "cross_entropy":
+        elif self.recon_loss_type == "BCE":
             return F.binary_cross_entropy(x_recon, x, reduction='sum') * 9
         elif self.recon_loss_type == "MSE":
             return torch.nn.MSELoss(reduction='sum')(x_recon, x)
