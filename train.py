@@ -9,11 +9,9 @@ from data import DataScheduler
 import torch.optim as optim
 
 from models.our_diva.ClOf import ClOf
-from models.our_diva.our_diva import OurDIVA
 import monitoring
 
 MODEL = {
-    "OurDIVA": OurDIVA,
     "ClOf": ClOf
 }
 

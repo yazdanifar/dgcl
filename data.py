@@ -496,7 +496,7 @@ class MNISTSMALL(torchvision.datasets.MNIST, ClassificationDataset):
         ClassificationDataset.__init__(self, config, train)
 
         # Create subset for each class
-        all_samples = list(np.load('rotated_mnist/supervised_inds_' + str(config['model']['seed']) + '.npy'))
+        all_samples = list(np.load('rotated_mnist/supervised_inds_' + str(config['seed']) + '.npy'))
         for y in range(self.num_classes):
             list_samples_class_y = list((self.targets == y).nonzero().squeeze(1).numpy())
             list_samples = list(set(all_samples).intersection(list_samples_class_y))
