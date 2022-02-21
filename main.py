@@ -88,7 +88,7 @@ def main():
     yaml.dump(episode, open(episode_save_path, 'w'))
     print('Config & episode saved to {}'.format(config['log_dir']))
 
-    seed = config['model']['seed']
+    seed = config['seed']
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)

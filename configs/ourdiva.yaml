@@ -56,6 +56,7 @@ replay_ratio: 0
 replay_loss_multiplier: 1
 equal_loss_scale: False
 scale_replay_loss_wrt_num_tasks: True
+seed: 0
 ################
 # DIVA configs #
 ################
@@ -94,7 +95,6 @@ model:
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False
-  seed: 0
   lr: 0.001
 
   zd_dim: 64
