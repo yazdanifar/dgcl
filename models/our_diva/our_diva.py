@@ -103,7 +103,7 @@ class FreezableLabelClassifier(FreezableLinearClassifier):
 class LinearClassifier(nn.Module):
     def __init__(self, input_dim, class_num):
         super(LinearClassifier, self).__init__()
-        self.net = nn.Sequential(nn.Linear(input_dim, class_num), nn.Softmax(dim=1))
+        self.net = nn.Sequential(nn.Linear(input_dim, class_num))
 
     def forward(self, x):
         return self.net(x)
@@ -112,7 +112,7 @@ class LinearClassifier(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, input_dim, class_num):
         super(Discriminator, self).__init__()
-        self.net = nn.Sequential(nn.Linear(input_dim, class_num), nn.Softmax(dim=1))
+        self.net = nn.Sequential(nn.Linear(input_dim, class_num))
 
     def forward(self, x):
         x = grad_reverse(x)
