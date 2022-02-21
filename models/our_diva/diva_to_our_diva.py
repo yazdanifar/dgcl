@@ -59,27 +59,17 @@ class Factory:
         else:
             raise NotImplementedError
 
-    def get_discriminator_y(self):
+    def get_adversarial_discriminator_on_zd(self):
         if self.model_config['use_discriminator_y']:
             return Discriminator(self.zd_dim, self.y_dim)
         else:
             return None
 
-    def discriminator_d_loss(self, zy_q):
-        if self.model_config['use_discriminator_y']:
-            raise NotImplementedError  # ce_y_discriminator = F.cross_entropy(self.discriminator_y(zd_q), y_target, reduction='sum')
-        return 0
-
-    def get_discriminator_d(self):
+    def get_adversarial_discriminator_on_zy(self):
         if self.model_config['use_discriminator_d']:
             return Discriminator(self.zy_dim, self.d_dim)
         else:
             return None
-
-    def discriminator_y_loss(self, zd_q):
-        if self.model_config['use_discriminator_d']:
-            raise NotImplementedError  # ce_d_discriminator = F.cross_entropy(self.discriminator_d(zy_q), d_target, reduction='sum')
-        return 0
 
     def get_pzd(self, learned_domain):
         if self.model_config['use_diva_pzd']:
@@ -156,8 +146,8 @@ class DIVAtoOurDIVA(nn.Module):
 
         self.learned_domain = nn.Parameter(torch.zeros(self.d_dim, device=self.device), requires_grad=False)
         self.px = f.get_px()
-        self.discriminator_y = f.get_discriminator_y()
-        self.discriminator_d = f.get_discriminator_d()
+        self.adversarial_discriminator_on_zy = f.get_adversarial_discriminator_on_zy()
+        self.adversarial_discriminator_on_zd = f.get_adversarial_discriminator_on_zd()
         self.pzd = f.get_pzd(self.learned_domain)
         self.pzy = f.get_pzy(self.learned_domain)
         self.qzd = f.get_qzd()
@@ -391,8 +381,17 @@ class DIVAtoOurDIVA(nn.Module):
             _, y_target = y.max(dim=1)
             CE_y = F.cross_entropy(y_hat, y_target, reduction='sum')
 
-            ce_d_discriminator = self.f.discriminator_d_loss(zy_q)
-            ce_y_discriminator = self.f.discriminator_y_loss(zd_q)
+            if self.adversarial_discriminator_on_zy is not None:
+                ce_d_discriminator = F.cross_entropy(self.adversarial_discriminator_on_zy(zy_q), d_target,
+                                                     reduction='sum')
+            else:
+                ce_d_discriminator = 0
+
+            if self.adversarial_discriminator_on_zd is not None:
+                ce_y_discriminator = F.cross_entropy(self.adversarial_discriminator_on_zd(zd_q), y_target,
+                                                     reduction='sum')
+            else:
+                ce_y_discriminator = 0
             ce_discriminator = ce_d_discriminator + ce_y_discriminator
 
             return CE_x \
