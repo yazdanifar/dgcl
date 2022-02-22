@@ -88,6 +88,9 @@ def main():
     yaml.dump(episode, open(episode_save_path, 'w'))
     print('Config & episode saved to {}'.format(config['log_dir']))
 
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
     seed = config['seed']
     torch.manual_seed(seed)
     np.random.seed(seed)
