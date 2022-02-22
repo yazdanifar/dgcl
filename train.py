@@ -8,11 +8,11 @@ from tensorboardX import SummaryWriter
 from data import DataScheduler
 import torch.optim as optim
 
-from models.our_diva.ClOf import ClOf
+# from models.our_diva.ClOf import ClOf
 import monitoring
 
 MODEL = {
-    "ClOf": ClOf
+    # "ClOf": ClOf
 }
 
 
