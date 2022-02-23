@@ -91,12 +91,16 @@ class DataScheduler(Iterator):
             self.schedule['test']['tasks'] = self.schedule['train'] + self.schedule['test']['tasks']
 
         self.eval_data_loaders = []
+        self.early_stop_data_loader = None
+
         for i, stage in enumerate(self.schedule['test']['tasks']):
             for j, subset in enumerate(stage['subsets']):
                 dataset = self.get_subset_instance(subset, False)  # type:ProxyDataset
                 if dataset.domain not in self.domain_nums:
                     self.domain_nums.append(dataset.domain)
             eval_data_loader, description = self.get_dataloader(stage)
+            if "early_stop" in stage and stage['early_stop'] is True:
+                self.early_stop_data_loader = eval_data_loader
             self.eval_data_loaders.append((eval_data_loader, description, stage.get('start_from', 0)))
 
         self.sup_iterator = None
@@ -384,6 +388,31 @@ class DataScheduler(Iterator):
                 accuracy_y, step
             )
             return accuracy_d, accuracy_y
+
+    def early_stop_evaluation(self, model, classifier_fn):
+        model.eval()
+        accurate_preds_y = 0
+        with torch.no_grad():
+            # use the right data loader
+            y_eye = torch.eye(self.class_num, device=self.device)
+            d_eye = torch.eye(self.domain_num, device=self.device)
+            dataset_len = 0
+            for inner_step, (xs, ys, ds) in enumerate(self.early_stop_data_loader):
+                dataset_len += ys.shape[0]
+                # To device
+                xs, ys = xs.to(self.device).float(), ys.to(self.device).long()
+
+                # Convert to onehot
+                ys = y_eye[ys]
+
+                # use classification function to compute all predictions for each batch
+                pred_d, pred_y = classifier_fn(xs)
+                accurate_preds_y += torch.sum(pred_y * ys)
+
+            # calculate the accuracy between 0 and 1
+            accuracy_y = (accurate_preds_y.item() * 1.0) / dataset_len
+        model.train()
+        return accuracy_y
 
     def eval(self, model, classifier_fn, writer, step, eval_title):
         starting_time = time.time()
