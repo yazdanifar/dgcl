@@ -154,8 +154,8 @@ class DataScheduler(Iterator):
         elif self.unsup_iterator is None:
             data = next(self.sup_iterator)
             unsup = False
-        elif (self.unsup_portion > 0.5 and self.step % self.supervised_period != 0) or (
-                self.unsup_portion < 0.5 and self.step % self.unsupervised_period == 0):
+        elif (self.unsup_portion > 0.5 and self.step % self.supervised_period != 1) or (
+                self.unsup_portion < 0.5 and self.step % self.unsupervised_period == 1):
             data = next(self.unsup_iterator)
             unsup = True
         else:
