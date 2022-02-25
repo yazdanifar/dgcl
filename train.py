@@ -10,13 +10,9 @@ import torch.optim as optim
 
 # from models.our_diva.ClOf import ClOf
 import monitoring
-from models.diva.diva import DIVA
-from models.our_diva.diva_to_our_diva import DIVAtoOurDIVA
 
 MODEL = {
-    # "ClOf": ClOf,
-    "DIVA": DIVA,
-    "OurDIVAtoOurDiva": DIVAtoOurDIVA
+    # "ClOf": ClOf
 }
 
 
@@ -55,42 +51,13 @@ def train_model(config, model,
     if print_times:
         end_time_ow = time.time()
 
-    sum_y_loss_epoch = 0
-    best_y_accuracy = 0
-    best_y_loss = 0
-    best_model = None
-    best_model_counter = 0
-
     for step, (x, y, d, t) in enumerate(scheduler):
         if config['print_times']:
             start_time_ow = time.time()
             print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))
 
         step += 1
-        epoch_steps = (len(scheduler.unsup_dataloader) + len(scheduler.sup_dataloader))
-        Epoch = step // epoch_steps + 1
-        if step % epoch_steps == 0:
-            y_accuracy = scheduler.early_stop_data_loader(model, model.classifier)
-            change_best = False
-            if y_accuracy > best_y_accuracy:
-                change_best = True
-            if y_accuracy == best_y_accuracy and sum_y_loss_epoch < best_y_loss:
-                change_best = True
-            if change_best:
-                print("best model changed")
-                best_y_loss = sum_y_loss_epoch
-                best_y_accuracy = y_accuracy
-                best_model = MODEL[config['model_name']](config, writer, config['device'])
-                best_model.load_state_dict(model.state_dict())
-                best_model.to(config['device'])
-                best_model.eval()
-                best_model_counter = 0
-            else:
-                best_model_counter += 1
-
-            if best_model_counter > 100:
-                break
-            sum_y_loss_epoch = 0
+        Epoch=step//(len(scheduler.unsup_dataloader)+len(scheduler.sup_dataloader))+1
 
         beta_d = min([config['model']['beta_d'], config['model']['beta_d'] * Epoch / warmup])
         beta_y = min([config['model']['beta_y'], config['model']['beta_y'] * Epoch / warmup])
@@ -136,7 +103,7 @@ def train_model(config, model,
 
         # Evaluate the model
         if model_eval:
-            scheduler.eval(best_model, best_model.classifier, writer, step, model.name)
+            scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
             print("save reconstructions")
             monitoring.save_latent_variable(prev_model, model, scheduler, writer, step)
