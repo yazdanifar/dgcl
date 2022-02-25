@@ -61,8 +61,8 @@ seed: 0
 # DIVA configs #
 ################
 model:
-  px_use_diva_conv: True # DIVA ConvNet
-  px_use_our_conv: False # ConvNet for BCE
+  px_use_diva_conv: False # DIVA ConvNet
+  px_use_our_conv: True # ConvNet for BCE
   # O.W: FC is used
   use_discriminator_y: False # label adversarial discriminator
   use_discriminator_d: False # adversarial discriminator
