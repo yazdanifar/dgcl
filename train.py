@@ -70,7 +70,7 @@ def train_model(config, model,
         epoch_steps = (len(scheduler.unsup_dataloader) + len(scheduler.sup_dataloader))
         Epoch = step // epoch_steps + 1
         if step % epoch_steps == 0:
-            y_accuracy = scheduler.early_stop_evaluation(model, model.classifier)
+            y_accuracy = scheduler.early_stop_data_loader(model, model.classifier)
             change_best = False
             if y_accuracy > best_y_accuracy:
                 change_best = True
@@ -128,7 +128,6 @@ def train_model(config, model,
         prev_t = t
 
         if task_changed:
-            print("best model changed")
             model.task_learned(t - 1, scheduler)
             prev_model = MODEL[config['model_name']](config, writer, config['device'])
             prev_model.load_state_dict(model.state_dict())
@@ -164,7 +163,6 @@ def train_model(config, model,
         prof.step()  # after training on original data
 
         with torch.no_grad():
-            sum_y_loss_epoch += class_y_loss
             sum_loss += loss
             sum_loss_count += 1
 
