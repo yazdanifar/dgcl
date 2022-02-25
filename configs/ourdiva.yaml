@@ -34,7 +34,7 @@ recon_loss: 'bernouiiilli'
 # Summary #
 ###########
 
-add_time_to_log: True
+add_time_to_log: False
 print_times: False
 
 eval_per_task: 15
