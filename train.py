@@ -57,7 +57,9 @@ def train_model(config, model,
             print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))
 
         step += 1
-        Epoch=step//(len(scheduler.unsup_dataloader)+len(scheduler.sup_dataloader))+1
+        stage_lenght = len(scheduler.unsup_dataloader) if scheduler.unsup_dataloader is not None else 0
+        stage_lenght += len(scheduler.sup_dataloader) if scheduler.sup_dataloader is not None else 0
+        Epoch = step // stage_lenght + 1
 
         beta_d = min([config['model']['beta_d'], config['model']['beta_d'] * Epoch / warmup])
         beta_y = min([config['model']['beta_y'], config['model']['beta_y'] * Epoch / warmup])
