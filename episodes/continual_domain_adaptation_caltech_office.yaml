@@ -4,28 +4,28 @@ train:
                ['CLOFW', 4, 0, 's', 1 ], ['CLOFW', 5, 0, 's', 1],
                ['CLOFW', 6, 0, 's', 1 ], ['CLOFW', 7, 0, 's', 1],
                ['CLOFW', 8, 0, 's', 1 ], ['CLOFW', 9, 0, 's', 1] ]
-    steps: 2022
+    epochs: 60
 
   - subsets: [ ['CLOFD', 0, 1, 'u', 1 ], ['CLOFD', 1, 1, 'u', 1],
                ['CLOFD', 2, 1, 'u', 1 ], ['CLOFD', 3, 1, 'u', 1],
                ['CLOFD', 4, 1, 'u', 1 ], ['CLOFD', 5, 1, 'u', 1],
                ['CLOFD', 6, 1, 'u', 1 ], ['CLOFD', 7, 1, 'u', 1],
                ['CLOFD', 8, 1, 'u', 1 ], ['CLOFD', 9, 1, 'u', 1] ]
-    steps: 2022
+    epochs: 60
 
   - subsets: [ ['CLOFC', 0, 2, 'u', 1 ], ['CLOFC', 1, 2, 'u', 1],
                ['CLOFC', 2, 2, 'u', 1 ], ['CLOFC', 3, 2, 'u', 1],
                ['CLOFC', 4, 2, 'u', 1 ], ['CLOFC', 5, 2, 'u', 1],
                ['CLOFC', 6, 2, 'u', 1 ], ['CLOFC', 7, 2, 'u', 1],
                ['CLOFC', 8, 2, 'u', 1 ], ['CLOFC', 9, 2, 'u', 1] ]
-    steps: 2022
+    epochs: 60
 
   - subsets: [ ['CLOFA', 0, 3, 'u', 1 ], ['CLOFA', 1, 3, 'u', 1],
                ['CLOFA', 2, 3, 'u', 1 ], ['CLOFA', 3, 3, 'u', 1],
                ['CLOFA', 4, 3, 'u', 1 ], ['CLOFA', 5, 3, 'u', 1],
                ['CLOFA', 6, 3, 'u', 1 ], ['CLOFA', 7, 3, 'u', 1],
                ['CLOFA', 8, 3, 'u', 1 ], ['CLOFA', 9, 3, 'u', 1] ]
-    steps: 2022
+    epochs: 60
 
 
 test:

@@ -2,26 +2,22 @@ import torch
 from tensorboardX import SummaryWriter
 from torch import nn
 
-from models.our_diva.our_diva import OurDIVA
+from models.our_diva.diva_to_our_diva import DIVAtoOurDIVA
 
 
-class ClOf(OurDIVA):
-
+class ClOf(DIVAtoOurDIVA):
     def __init__(self, args, writer: SummaryWriter, device):
         super(ClOf, self).__init__(args, writer, device)
         self.name = "ClOfPx"
         self.device = device
         self.use_KL_close = True
-        self.use_bayes = False
-        self.freeze_classifiers = False
-        self.freeze_priors = False
 
-        self.px = ClOfPx(self.zd_dim, self.zx_dim, self.zy_dim, self.x_w, self.x_h, self.x_c)
+        self.px = ClOfPx(self.f.zd_dim, self.f.zx_dim, self.f.zy_dim, self.f.x_w, self.f.x_h, self.f.x_c)
 
-        self.qzd = CalOffQzd(self.x_dim, self.zd_dim)
+        self.qzd = CalOffQzd(self.f.x_dim, self.f.zd_dim)
         if self.zx_dim != 0:
-            self.qzx = CalOffQzx(self.x_dim, self.zx_dim)
-        self.qzy = CalOffQzy(self.x_dim, self.zy_dim)
+            self.qzx = CalOffQzx(self.f.x_dim, self.f.zx_dim)
+        self.qzy = CalOffQzy(self.f.x_dim, self.f.zy_dim)
 
 
 class ClOfPx(nn.Module):

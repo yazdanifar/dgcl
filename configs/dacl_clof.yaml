@@ -3,10 +3,10 @@
 ###########
 
 data_root: 'data_files'
-batch_size: 10
-num_workers: 2
+batch_size: 89
+num_workers: 0
 eval_batch_size: 100
-eval_num_workers: 2
+eval_num_workers: 0
 
 label_offset:
   mnist: 0
@@ -36,20 +36,22 @@ recon_loss: 'bernouiiilli'
 # Summary #
 ###########
 
+disable_profiler: True
+
 add_time_to_log: True
 print_times: False
 
-eval_per_task: 3
-eval_step:
+eval_per_task:
+eval_step: 2022
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 6
-summary_step:
+summary_per_task:
+summary_step: 2022
 summarize_samples: True
 
 training_loss_step: 10
-
+seed: 1
 ##########
 # Replay #
 ##########
@@ -63,15 +65,42 @@ scale_replay_loss_wrt_num_tasks: True
 # DIVA configs #
 ################
 model:
-  use_aux_domain: True
-  use_aux_class: True
+  px_use_diva_conv: False # DIVA ConvNet
+  px_use_our_conv: True # ConvNet for BCE
+  # O.W: FC is used
+  use_discriminator_y: True # label adversarial discriminator
+  use_discriminator_d: True # adversarial discriminator
+
+  use_diva_pzd: True # DIVA's multi-layer pzd
+  freeze_pzd: False
+  # O.W: a single layer pzd is used
+
+  use_diva_pzy: True # DIVA's multi-layer pzy
+  freeze_pzy: False
+  # O.W: a single layer pzy is used
+
+  use_diva_qzd: True # O.W: FC is used
+  use_diva_qzy: True # O.W: FC is used
+  use_diva_qzx: True # O.W: FC is used
+
+  use_diva_qd: True
+  use_bayes_qd: False
+  freeze_qd: False
+  # O.W: same classifier as DIVA is returned
+  # except that it's activation is Softmax.
+
+  use_diva_qy: True
+  use_bayes_qy: False
+  freeze_qy: False
+  # O.W: same classifier as DIVA is returned
+  # except that it's activation is Softmax.
+
   recon_loss: 'MSE'
 
-  freeze_latent_domain: True
   # Training settings
   description: 'TwoTaskVae'
   no-cuda: False
-  seed: 1
+
   lr: 0.00002
 
   zd_dim: 64
@@ -79,13 +108,15 @@ model:
   zy_dim: 64
 
   # Aux multipliers
-  aux_loss_multiplier_y: 50000000
-  aux_loss_multiplier_d: 8000000
-
+  aux_loss_multiplier_y: 5000
+  aux_loss_multiplier_d: 8000
+  aux_loss_discriminator: 5000
   # Beta VAE part
   beta_d: 1
   beta_x: 1
   beta_y: 1
+
+  warm_up: 0.3
 #
 # w, warm_up, N: 100
 #  max_beta, MB: 1    help='max beta for warm-up')
