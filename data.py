@@ -36,6 +36,10 @@ from tensorboardX import SummaryWriter
 
 class DataScheduler(Iterator):
     def __init__(self, config):
+        self.this_task_epoch = 0
+        self.total_epoch = 0
+        self.current_task_epoch_size = 0
+
         self.sup_dataloader = None
         self.unsup_dataloader = None
         self.remained_epoch = 0
@@ -161,6 +165,9 @@ class DataScheduler(Iterator):
         else:
             data = next(self.sup_iterator)
             unsup = False
+        if self.step % self.current_task_epoch_size == self.current_task_epoch_size - 1:
+            self.this_task_epoch += 1
+            self.total_epoch += 1
         return data, unsup
 
     def stage_classes(self, stage_num, domain_id=None):
@@ -257,6 +264,8 @@ class DataScheduler(Iterator):
                                      "pin_memory": True,
                                      "collate_fn": collate_fn}
 
+                self.this_task_epoch = 0
+                self.current_task_epoch_size = 0
                 if sup_dataset is not None:
                     if sup_sampler is None:
                         dataloader_kwargs["shuffle"] = True
@@ -269,6 +278,7 @@ class DataScheduler(Iterator):
                             sup_dataset,
                             **dataloader_kwargs
                         )
+                    self.current_task_epoch_size += len(sup_dataset) // self.config['batch_size']
                     self.sup_iterator = iter(self.sup_dataloader)
                 if unsup_dataset is not None:
                     if unsup_sampler is None:
@@ -282,6 +292,7 @@ class DataScheduler(Iterator):
                             unsup_dataset,
                             **dataloader_kwargs
                         )
+                    self.current_task_epoch_size += len(unsup_dataset) // self.config['batch_size']
                     self.unsup_iterator = iter(self.unsup_dataloader)
 
                 if sup_dataset is None:
