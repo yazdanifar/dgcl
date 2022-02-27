@@ -12,9 +12,10 @@ import torch.optim as optim
 import monitoring
 from models.diva.diva import DIVA
 from models.our_diva.diva_to_our_diva import DIVAtoOurDIVA
+from models.our_diva.ClOf import ClOf
 
 MODEL = {
-    # "ClOf": ClOf,
+    "ClOf": ClOf,
     "DIVA": DIVA,
     "OurDIVAtoOurDiva": DIVAtoOurDIVA
 }
@@ -56,7 +57,6 @@ def train_model(config, model,
         end_time_ow = time.time()
 
     for step, (x, y, d, t) in enumerate(scheduler):
-        print(scheduler.current_task_epoch_size, scheduler.this_task_epoch, scheduler.total_epoch)
         if config['print_times']:
             start_time_ow = time.time()
             print("Data Load:", round((start_time_ow - end_time_ow) * 100, 3))

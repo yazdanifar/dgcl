@@ -68,10 +68,7 @@ class DataScheduler(Iterator):
 
                 stage_total += len(dataset)
 
-            if 'steps' in stage:
-                stage_total = stage['steps']
-
-            elif 'epochs' in stage:
+            if 'epochs' in stage:
                 stage_total = int(
                     stage['epochs'] * (stage_total // config['batch_size']))
                 if stage_total % config['batch_size'] > 0:
@@ -235,20 +232,6 @@ class DataScheduler(Iterator):
                             replacement=True,
                             num_samples=stage['samples']
                         )
-                elif 'steps' in stage:
-                    self.remained_epoch = 0
-                    if sup_dataset is not None:
-                        sup_sampler = RandomSampler(
-                            sup_dataset,
-                            replacement=True,
-                            num_samples=stage['steps'] * self.config['batch_size']
-                        )
-                    if unsup_dataset is not None:
-                        unsup_sampler = RandomSampler(
-                            unsup_dataset,
-                            replacement=True,
-                            num_samples=stage['steps'] * self.config['batch_size']
-                        )
                 elif 'epochs' in stage:
                     self.remained_epoch = stage['epochs']
                     sup_sampler = None
@@ -297,8 +280,10 @@ class DataScheduler(Iterator):
 
                 if sup_dataset is None:
                     self.unsup_portion = 1
+                    self.supervised_period = 10000000000000000
                 elif unsup_dataset is None:
                     self.unsup_portion = 0
+                    self.unsupervised_period = 10000000000000000
                 else:
                     self.unsup_portion = len(unsup_dataset) / (len(sup_dataset) + len(unsup_dataset))
                     self.supervised_period = 1
@@ -447,7 +432,8 @@ class ProxyDataset(Dataset):
 
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
         img, target = self.inner_dataset.__getitem__(index + self.offset)
-        img = transforms.functional.rotate(img, self.rotation)
+        if self.rotation is not None:
+            img = transforms.functional.rotate(img, self.rotation)
         if self.black_and_white:
             img = (0.5 < img).to(torch.float)
 
