@@ -60,14 +60,14 @@ def get_latent_variable_by_data(model, x, y, d, scheduler):
     return zy_p_loc, zy_q, zd_p_loc, zd_q, y, d
 
 
-def get_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader):
+def get_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader, number_of_points=50):
     # use the right data loader
     y_eye = torch.eye(scheduler.class_num, device=scheduler.device)
     d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
 
     for step, (x, y, d) in enumerate(data_loader):
         # To device
-        x, y, d = x.to(scheduler.device).float(), y.to(scheduler.device).long(), d.to(scheduler.device).long()
+        x, y, d = x.to(scheduler.device).float()[:number_of_points], y.to(scheduler.device).long()[:number_of_points], d.to(scheduler.device).long()[:number_of_points]
 
         # Convert to onehot
         d_onehot = d_eye[d]
