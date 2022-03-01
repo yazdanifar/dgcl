@@ -246,72 +246,24 @@ class DIVA(nn.Module):
 
         self.cuda()
 
-    # def get_image_by_recon(self, x):
-    #     x_shape = x.cpu().shape
-    #     batch_size, h, w = x_shape[0], x_shape[2], x_shape[3]
-    #     recon_batch = x.view(-1, 1, h, w, 256)  # TODO: make it more general channel!=1
-    #     sample = torch.zeros(batch_size, 1, h, w).cuda()
-    #
-    #     for i in range(h):
-    #         for j in range(w):
-    #
-    #             # out[:, :, i, j]
-    #             probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
-    #
-    #             # Sample single pixel (each channel independently)
-    #             for k in range(1):
-    #                 val, ind = torch.max(probs[:, k], dim=1)
-    #                 sample[:, k, i, j] = ind.squeeze().float() / 255.
-    #
-    #     return sample
-
-    # def get_replay_batch(self, learned_class, batch_size):
-    #     choices = np.random.choice(np.arange(len(learned_class)), batch_size)
-    #     # we could replay based on some thing diffrent
-    #     # (if ew forgot a task we could put more sample
-    #     #  from that task in the batch) p!=uniform
-    #     y = np.zeros(batch_size).astype(int)
-    #     d = np.zeros(batch_size).astype(int)
-    #     for i in range(batch_size):
-    #         d[i], y[i] = learned_class[choices[i]]
-    #
-    #     with torch.no_grad():
-    #         x = self.generate_supervised_image(d, y)
-    #
-    #     y, d = torch.from_numpy(y).long(), torch.from_numpy(d).long()
-    #     return x, y, d
-
-    # def generate_supervised_image(self, d, y):
-    #     assert self.zx_dim != 0, "currently zx_dim=0 is not supported"
-    #     d_eye = torch.eye(self.d_dim)
-    #     y_eye = torch.eye(self.y_dim)
-    #     y = y_eye[y]
-    #     d = d_eye[d]
-    #     y, d = y.to(self.device), d.to(self.device)
-    #     batch_size = len(d)
-    #     zd_p_loc, zd_p_scale = self.pzd(d)
-    #     zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim).cuda(), torch.ones(batch_size, self.zx_dim).cuda()
-    #     zy_p_loc, zy_p_scale = self.pzy(y)
-    #
-    #     # Reparameterization trick
-    #     pzd = dist.Normal(zd_p_loc, zd_p_scale)
-    #     zd_p = pzd.rsample()
-    #
-    #     pzx = dist.Normal(zx_p_loc, zx_p_scale)
-    #     zx_p = pzx.rsample()
-    #
-    #     pzy = dist.Normal(zy_p_loc, zy_p_scale)
-    #     zy_p = pzy.rsample()
-    #
-    #     x_recon = self.px(zd_p, zx_p, zy_p)
-    #     x_recon = self.get_image_by_recon(x_recon)
-    #     return x_recon
-
     @staticmethod
-    def reparameterize(mu, std):
-        '''Perform "reparametrization trick" to make these stochastic variables differentiable.'''
-        eps = std.new_empty(std.shape).normal_()  # .requires_grad_()
-        return eps.mul(std).add_(mu)
+    def save_reconstructions(x):
+
+        recon_batch = x.view(-1, 1, 28, 28, 256)
+        sample = torch.zeros(8, 1, 28, 28).cuda()
+
+        for i in range(28):
+            for j in range(28):
+
+                # out[:, :, i, j]
+                probs = F.softmax(recon_batch[:, :, i, j], dim=2).data
+
+                # Sample single pixel (each channel independently)
+                for k in range(1):
+                    val, ind = torch.max(probs[:, k], dim=1)
+                    sample[:, k, i, j] = ind.squeeze().float() / 255.
+
+        return sample
 
     def generate_supervised_image(self, d, y):
         d_eye = torch.eye(self.d_dim, device=self.device)
@@ -319,29 +271,21 @@ class DIVA(nn.Module):
         y = y_eye[y]
         d = d_eye[d]
         y, d = y.to(self.device), d.to(self.device)
-        batch_size = len(d)
-
         zd_p_loc, zd_p_scale = self.pzd(d)
-
-        if self.zx_dim != 0:
-            zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), \
-                                   torch.ones(batch_size, self.zx_dim, device=self.device)
-
+        zx_p_loc = torch.zeros(8, 64).cuda()
+        zx_p_scale = torch.ones(8, 64).cuda()
         zy_p_loc, zy_p_scale = self.pzy(y)
 
-        # Reparameterization trick
-        zd_p = DIVA.reparameterize(zd_p_loc, zd_p_scale)
+        pzd = dist.Normal(zd_p_loc, zd_p_scale)
+        zd_p = pzd.sample()
+        pzx = dist.Normal(zx_p_loc, zx_p_scale)
+        zx_p = pzx.sample()
+        pzy = dist.Normal(zy_p_loc, zy_p_scale)
+        zy_p = pzy.sample()
 
-        if self.zx_dim != 0:
-            zx_p = DIVA.reparameterize(zx_p_loc, zx_p_scale)
-
-        else:
-            zx_p = None
-
-        zy_p = DIVA.reparameterize(zy_p_loc, zy_p_scale)
-
+        # Reconstruct
         x_recon = self.px(zd_p, zx_p, zy_p)
-
+        x_recon = DIVA.save_reconstructions(x_recon)
         return x_recon
 
 
