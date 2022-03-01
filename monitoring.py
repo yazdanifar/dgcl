@@ -7,9 +7,9 @@ from data import DataScheduler
 from sklearn import decomposition
 from sklearn.manifold import TSNE
 
-global projection_matrix
-projection_matrix = torch.rand(size=(64, 2), device="cuda")  # torch.eye(64, device=config['device'])  # #
-
+# global projection_matrix
+# projection_matrix = torch.rand(size=(64, 2), device="cuda")  # torch.eye(64, device=config['device'])  # #
+#
 
 def show_batch(dd, xx, y, t):
     dd, xx = dd.cpu(), xx.cpu()
