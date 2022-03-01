@@ -27,7 +27,7 @@ MODEL = {
 def train_model(config, model,
                 scheduler: DataScheduler,
                 writer: SummaryWriter,
-                prof: torch.profiler.profile):
+                prof):
     warmup = config['model']['warm_up']
     print("warm_up", warmup)
     class_num = config['y_dim']
