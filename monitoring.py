@@ -60,7 +60,7 @@ def get_latent_variable_by_data(model, x, y, d, scheduler):
     return zy_p_loc, zy_q, zd_p_loc, zd_q, y, d
 
 
-def get_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader, number_of_points=50):
+def get_latent_variable(model, scheduler: DataScheduler, data_loader: DataLoader, number_of_points=30):
     # use the right data loader
     y_eye = torch.eye(scheduler.class_num, device=scheduler.device)
     d_eye = torch.eye(scheduler.domain_num, device=scheduler.device)
