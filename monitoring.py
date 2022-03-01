@@ -213,13 +213,16 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
     # Save reconstuction
     model.eval()
     with torch.no_grad():
-        generated = prev_model.generate_replay_batch(10 * task_number)
-        if generated:
-            x, y, d = generated
-            for i in torch.unique(d):
-                img = x[d == i]
-                img = img.detach()
-                writer.add_images('generated_images_batch/%s_%s' % (prev_model.name, i.item()), img, step)
+        try:
+            generated = prev_model.generate_replay_batch(10 * task_number)
+            if generated:
+                x, y, d = generated
+                for i in torch.unique(d):
+                    img = x[d == i]
+                    img = img.detach()
+                    writer.add_images('target_generated_images_batch/%s_%s' % (prev_model.name, i.item()), img, step)
+        except:
+            print("model doesn't support target_generated_images_batch")
 
         all_classes = []
         for i in range(scheduler.stage + 1):
@@ -237,7 +240,7 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
                 x = model.generate_supervised_image(d_n, y).detach()
                 if x.shape[1] == 256:
                     x = torch.argmax(x, dim=1, keepdim=True)
-                writer.add_images('generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
+                writer.add_images('current_generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
 
 

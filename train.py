@@ -111,7 +111,10 @@ def train_model(config, model,
             scheduler.eval(model, model.classifier, writer, step, model.name)
         if summarize_samples:
             print("save reconstructions")
-            monitoring.save_latent_variable(prev_model, model, scheduler, writer, step)
+            try:
+                monitoring.save_latent_variable(prev_model, model, scheduler, writer, step)
+            except:
+                print("this model doesn't support save_latent_variable")
             monitoring.save_reconstructions(prev_model, model, scheduler, writer, step, t)
 
         # to device

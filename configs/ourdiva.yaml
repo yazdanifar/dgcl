@@ -27,7 +27,7 @@ d_dim: 6
 device: 'cuda'
 disable_profiler: True
 testing_mode: True
-model_name: 'OurDIVAtoOurDiva'
+model_name: 'DIVA'
 recon_loss: 'bernouiiilli'
 
 ###########
@@ -37,12 +37,12 @@ recon_loss: 'bernouiiilli'
 add_time_to_log: False
 print_times: False
 
-eval_per_task: 15
+eval_per_task: 9
 eval_step:
 initial_evaluation: False
 eval_in_task_change: False
 
-summary_per_task: 2
+summary_per_task: 9
 summary_step:
 summarize_samples: True
 

@@ -8,6 +8,7 @@ from tensorboardX import SummaryWriter
 
 ### Follows model as seen in LEARNING ROBUST REPRESENTATIONS BY PROJECTING SUPERFICIAL STATISTICS OUT
 # Decoders
+
 class px(nn.Module):
     def __init__(self, d_dim, x_dim, y_dim, zd_dim, zx_dim, zy_dim):
         super(px, self).__init__()
@@ -305,6 +306,44 @@ class DIVA(nn.Module):
     #     x_recon = self.px(zd_p, zx_p, zy_p)
     #     x_recon = self.get_image_by_recon(x_recon)
     #     return x_recon
+
+    @staticmethod
+    def reparameterize(mu, std):
+        '''Perform "reparametrization trick" to make these stochastic variables differentiable.'''
+        eps = std.new_empty(std.shape).normal_()  # .requires_grad_()
+        return eps.mul(std).add_(mu)
+
+    def generate_supervised_image(self, d, y):
+        d_eye = torch.eye(self.d_dim, device=self.device)
+        y_eye = torch.eye(self.y_dim, device=self.device)
+        y = y_eye[y]
+        d = d_eye[d]
+        y, d = y.to(self.device), d.to(self.device)
+        batch_size = len(d)
+
+        zd_p_loc, zd_p_scale = self.pzd(d)
+
+        if self.zx_dim != 0:
+            zx_p_loc, zx_p_scale = torch.zeros(batch_size, self.zx_dim, device=self.device), \
+                                   torch.ones(batch_size, self.zx_dim, device=self.device)
+
+        zy_p_loc, zy_p_scale = self.pzy(y)
+
+        # Reparameterization trick
+        zd_p = DIVA.reparameterize(zd_p_loc, zd_p_scale)
+
+        if self.zx_dim != 0:
+            zx_p = DIVA.reparameterize(zx_p_loc, zx_p_scale)
+
+        else:
+            zx_p = None
+
+        zy_p = DIVA.reparameterize(zy_p_loc, zy_p_scale)
+
+        x_recon = self.px(zd_p, zx_p, zy_p)
+
+        return x_recon
+
 
     def forward(self, d, x, y):
         # Encode
