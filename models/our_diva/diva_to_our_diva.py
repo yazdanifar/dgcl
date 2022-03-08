@@ -85,7 +85,7 @@ class Factory:
         elif self.model_config['freeze_pzy']:
             return FreezablePzd(self.d_dim, self.zd_dim, learned_domain)
         else:
-            return Pzy(self.d_dim, self.zd_dim)
+            return Pzy(self.y_dim, self.zy_dim)
 
     def get_qzd(self):
         if self.model_config['use_diva_qzd']:

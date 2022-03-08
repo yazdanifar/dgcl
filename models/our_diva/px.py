@@ -34,12 +34,6 @@ class convpx(nn.Module):
         self.de2 = nn.Sequential(nn.ConvTranspose2d(128, 256, kernel_size=5, stride=1, padding=0, bias=False), nn.BatchNorm2d(256), nn.ReLU())
         self.de3 = nn.Sequential(nn.Conv2d(256, 1, kernel_size=1, stride=1), nn.Sigmoid())
 
-        torch.nn.init.xavier_uniform_(self.fc1[0].weight)
-        torch.nn.init.xavier_uniform_(self.de1[0].weight)
-        torch.nn.init.xavier_uniform_(self.de2[0].weight)
-        torch.nn.init.xavier_uniform_(self.de3[0].weight)
-        self.de3[0].bias.data.zero_()
-
     def forward(self, zd, zx, zy):
         if zx is None:
             zdzxzy = torch.cat((zd, zy), dim=-1)
