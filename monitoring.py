@@ -238,6 +238,8 @@ def save_reconstructions(prev_model, model, scheduler, writer: SummaryWriter, st
             if len(yy) > 0:
                 y, d_n = np.array(yy).astype(int), np.array(dd).astype(int)
                 x = model.generate_supervised_image(d_n, y).detach()
+                if x.shape[1] == 256:
+                    x = torch.argmax(x, dim=1, keepdim=True)
                 writer.add_images('current_generated_images_by_domain/%s/domain_%s' % (model.name, d), x, step)
     model.train()
 
